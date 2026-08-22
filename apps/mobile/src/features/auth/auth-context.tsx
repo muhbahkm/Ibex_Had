@@ -1,7 +1,9 @@
 import type { Session } from '@supabase/supabase-js';
 import {
   createContext,
+  type Dispatch,
   type PropsWithChildren,
+  type SetStateAction,
   useContext,
   useEffect,
   useMemo,
@@ -10,10 +12,13 @@ import {
 import { AppState } from 'react-native';
 
 import { supabase } from '../../lib/supabase';
+import type { PendingPhoneOnboarding } from './auth-service';
 
 type AuthContextValue = {
   readonly session: Session | null;
   readonly isLoading: boolean;
+  readonly pendingOnboarding: PendingPhoneOnboarding | null;
+  readonly setPendingOnboarding: Dispatch<SetStateAction<PendingPhoneOnboarding | null>>;
   signOut(): Promise<void>;
 };
 
@@ -22,6 +27,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingOnboarding, setPendingOnboarding] = useState<PendingPhoneOnboarding | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +47,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
       setSession(nextSession);
+      if (nextSession) setPendingOnboarding(null);
       setIsLoading(false);
     });
 
@@ -64,12 +71,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       session,
       isLoading,
+      pendingOnboarding,
+      setPendingOnboarding,
       async signOut() {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
       },
     }),
-    [session, isLoading],
+    [session, isLoading, pendingOnboarding],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
