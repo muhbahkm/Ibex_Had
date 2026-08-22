@@ -1,11 +1,12 @@
 import type { BusinessCustomerSummaryRecord } from '../../../../../packages/application/src/ports';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../../src/features/auth/auth-context';
 import { ibex } from '../../../src/lib/ibex';
-import { AppScreen, ErrorMessage, Field, Heading, PrimaryButton } from '../../../src/ui/primitives';
+import { Button, EmptyState, ErrorState, LoadingState, Surface, TextField } from '../../../src/ui/primitives';
+import { SecondaryShell } from '../../../src/ui/secondary-shell';
 import { theme } from '../../../src/ui/theme';
 
 function param(value: string | string[] | undefined): string { return Array.isArray(value) ? (value[0] ?? '') : (value ?? ''); }
@@ -21,60 +22,85 @@ export default function CustomersScreen() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const load = useCallback(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     setLoading(true);
     setError(null);
-    void ibex.listBusinessCustomers({ businessId, search }).then((rows) => { if (active) setCustomers(rows); }).catch((loadError: unknown) => { if (active) setError(message(loadError)); }).finally(() => { if (active) setLoading(false); });
+    void ibex.listBusinessCustomers({ businessId, search })
+      .then((rows) => { if (active) setCustomers(rows); })
+      .catch((loadError: unknown) => { if (active) setError(message(loadError)); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [businessId, search]);
+  }, [businessId, search, refreshNonce]));
 
-  useFocusEffect(load);
+  const accountCount = useMemo(() => customers.reduce((sum, customer) => sum + customer.accountCount, 0), [customers]);
+
   if (!session) return <Redirect href="/sign-in" />;
   if (!businessId) return <Redirect href="/home" />;
 
   return (
-    <AppScreen>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} style={styles.backButton}><Text style={styles.backText}>رجوع</Text></Pressable>
-        <Heading title={businessName} subtitle="العملاء والحسابات المشتركة لهذا النشاط." />
-        <Field label="بحث" onChangeText={setSearch} placeholder="اسم العميل أو رقم الجوال" returnKeyType="search" value={search} />
+    <SecondaryShell title="العملاء" subtitle={businessName} onBack={() => router.back()}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <Surface variant="tinted">
+          <View style={styles.metricsRow}>
+            <View style={styles.metric}><Text style={styles.metricValue}>{String(customers.length)}</Text><Text style={styles.metricLabel}>عميل ظاهر</Text></View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metric}><Text style={styles.metricValue}>{String(accountCount)}</Text><Text style={styles.metricLabel}>حساب</Text></View>
+          </View>
+        </Surface>
+
+        <TextField label="بحث" onChangeText={setSearch} placeholder="اسم العميل أو رقم الجوال" returnKeyType="search" value={search} />
+
         <View style={styles.actions}>
-          <View style={styles.actionItem}><PrimaryButton onPress={() => router.push({ pathname: '/business/[businessId]/customer/new', params: { businessId, businessName } })}>إضافة عميل</PrimaryButton></View>
-          <View style={styles.actionItem}><PrimaryButton onPress={() => router.push({ pathname: '/business/[businessId]/disputes', params: { businessId, businessName } })}>طلبات المراجعة</PrimaryButton></View>
+          <View style={styles.actionItem}><Button onPress={() => router.push({ pathname: '/business/[businessId]/customer/new', params: { businessId, businessName } })}>إضافة عميل</Button></View>
+          <View style={styles.actionItem}><Button variant="secondary" onPress={() => router.push({ pathname: '/business/[businessId]/disputes', params: { businessId, businessName } })}>طلبات المراجعة</Button></View>
         </View>
-        <ErrorMessage message={error} />
-        {loading ? <ActivityIndicator color={theme.colors.primary} style={styles.loader} /> : null}
-        {!loading && customers.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>لا توجد نتائج</Text><Text style={styles.emptyBody}>أضف أول عميل أو غيّر عبارة البحث.</Text></View> : null}
+
+        {error ? <ErrorState message={error} onRetry={() => setRefreshNonce((value) => value + 1)} /> : null}
+        {loading ? <LoadingState label="جارٍ تحميل العملاء" /> : null}
+        {!loading && !error && customers.length === 0 ? <EmptyState title="لا توجد نتائج" message="أضف أول عميل أو غيّر عبارة البحث." /> : null}
+
         <View style={styles.list}>
           {customers.map((customer) => (
-            <Pressable key={customer.businessCustomerId} onPress={() => router.push({ pathname: '/customer/[businessCustomerId]', params: { businessCustomerId: customer.businessCustomerId, customerIdentityId: customer.customerIdentityId, businessId, businessName, displayName: customer.displayName, phone: customer.phoneE164 ?? '' } })} style={({ pressed }) => [styles.customerCard, pressed ? styles.cardPressed : null]}>
-              <View style={styles.customerMeta}><Text style={styles.customerName}>{customer.displayName}</Text><Text style={styles.customerCaption}>{customer.phoneE164 ?? 'بدون رقم جوال'} · {customer.accountCount} حساب</Text></View>
-              <Text style={styles.chevron}>‹</Text>
+            <Pressable
+              accessibilityRole="button"
+              key={customer.businessCustomerId}
+              onPress={() => router.push({ pathname: '/customer/[businessCustomerId]', params: { businessCustomerId: customer.businessCustomerId, customerIdentityId: customer.customerIdentityId, businessId, businessName, displayName: customer.displayName, phone: customer.phoneE164 ?? '' } })}
+              style={({ pressed }) => [pressed ? styles.pressed : null]}
+            >
+              <Surface variant="outlined">
+                <View style={styles.customerRow}>
+                  <View style={styles.customerMeta}>
+                    <Text style={styles.customerName}>{customer.displayName}</Text>
+                    <Text style={styles.customerCaption}>{customer.phoneE164 ?? 'بدون رقم جوال'} · {String(customer.accountCount)} حساب</Text>
+                  </View>
+                  <Text style={styles.chevron}>‹</Text>
+                </View>
+              </Surface>
             </Pressable>
           ))}
         </View>
       </ScrollView>
-    </AppScreen>
+    </SecondaryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: theme.spacing.xl },
-  backButton: { alignSelf: 'flex-start', paddingVertical: theme.spacing.sm, marginBottom: theme.spacing.md },
-  backText: { color: theme.colors.textMuted, fontWeight: '700', writingDirection: 'rtl' },
+  content: { gap: theme.spacing.lg, paddingTop: theme.spacing.lg, paddingBottom: theme.spacing.xl },
+  metricsRow: { flexDirection: 'row-reverse', alignItems: 'stretch' },
+  metric: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: theme.spacing.xxs },
+  metricValue: { color: theme.colors.text, fontSize: theme.typography.styles.heading.fontSize, fontWeight: '700', writingDirection: 'ltr' },
+  metricLabel: { color: theme.colors.textMuted, fontSize: theme.typography.caption, writingDirection: 'rtl' },
+  metricDivider: { width: 1, backgroundColor: theme.colors.border },
   actions: { flexDirection: 'row-reverse', gap: theme.spacing.sm },
   actionItem: { flex: 1 },
-  loader: { marginVertical: theme.spacing.lg },
-  emptyCard: { marginTop: theme.spacing.lg, padding: theme.spacing.lg, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surfaceMuted },
-  emptyTitle: { color: theme.colors.text, fontWeight: '700', fontSize: theme.typography.heading, textAlign: 'right' },
-  emptyBody: { color: theme.colors.textMuted, marginTop: theme.spacing.sm, textAlign: 'right', writingDirection: 'rtl' },
-  list: { gap: theme.spacing.sm, marginTop: theme.spacing.lg },
-  customerCard: { minHeight: 76, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface, padding: theme.spacing.lg, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
-  cardPressed: { opacity: 0.72 },
-  customerMeta: { flex: 1, gap: theme.spacing.xs },
-  customerName: { color: theme.colors.text, fontWeight: '700', fontSize: theme.typography.body, textAlign: 'right', writingDirection: 'rtl' },
+  list: { gap: theme.spacing.sm },
+  customerRow: { minHeight: theme.layout.minTouchTarget, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
+  customerMeta: { flex: 1, gap: theme.spacing.xxs },
+  customerName: { color: theme.colors.text, fontSize: theme.typography.styles.bodyStrong.fontSize, lineHeight: theme.typography.styles.bodyStrong.lineHeight, fontWeight: theme.typography.styles.bodyStrong.fontWeight, textAlign: 'right', writingDirection: 'rtl' },
   customerCaption: { color: theme.colors.textMuted, fontSize: theme.typography.caption, textAlign: 'right', writingDirection: 'rtl' },
-  chevron: { color: theme.colors.textMuted, fontSize: 28, marginRight: theme.spacing.md },
+  chevron: { color: theme.colors.textMuted, fontSize: 28, writingDirection: 'ltr' },
+  pressed: { opacity: 0.72 },
 });
