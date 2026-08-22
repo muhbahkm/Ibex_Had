@@ -20,12 +20,10 @@ Completed:
 - Supabase Mumbai project `Ibex_Had v1` is the only active backend target.
 - GitHub is established as source of truth for code and migrations.
 - Notion is established as source of truth for product/architecture decisions.
-- PR-based delivery flow was exercised successfully through PR #1.
+- PR-based delivery flow is established and exercised.
 - TypeScript/pnpm workspace foundation is committed.
 - Strict TypeScript configuration, ESLint, Vitest, repository hygiene, PR template, CODEOWNERS, environment template, and engineering conventions are committed.
 - GitHub Actions CI runs lint, typecheck, and tests and is green.
-- Supabase remains intentionally schema-empty before Phase 1, with no migrations or Edge Functions.
-- Supabase Security and Performance Advisors are clean at the Phase 0 checkpoint.
 
 Administrative hardening still required in GitHub settings:
 - Change repository visibility from Public to Private before sensitive implementation details/secrets/infrastructure are introduced.
@@ -33,30 +31,39 @@ Administrative hardening still required in GitHub settings:
 
 These settings are tracked as owner-level repository administration because the connected GitHub tool surface does not expose repository visibility or branch-protection mutation.
 
-Exit criteria for the technical foundation are met. Full governance hardening is complete once the two GitHub settings above are enabled.
-
 ## Phase 1 — Ledger core and Schema v1
-Priority: critical.
+Status: COMPLETE.
 
-- Review and freeze Schema v1.
-- Freeze money representation and currency rules.
-- Freeze balance convention: positive = customer owes business; negative = business owes customer.
-- Freeze transaction lifecycle: draft -> posted -> reversed/voided under documented rules.
-- Finalize identity, business, membership, customer, account, transaction, entry, document, dispute, integration, and audit tables.
-- Define idempotency and posted-transaction immutability.
-- Create migration 0001 and apply to Supabase.
-- Enable RLS from the first migration.
-- Add ledger invariant and balance-rebuild tests.
+Completed:
+- Schema v1 and financial invariants frozen for the MVP core.
+- Money representation uses integer minor units (`bigint` in PostgreSQL); floating-point money is prohibited.
+- Balance convention frozen: positive = customer owes business; negative = business owes customer.
+- Transaction lifecycle and explicit reversal behavior enforced in PostgreSQL.
+- Identity, business, membership, customer, account, transaction, entry, document, dispute, integration, and audit structures deployed.
+- Idempotency and posted-transaction immutability enforced.
+- Three repository migrations deployed to Supabase Mumbai in order: ledger core, API-grant hardening, FK covering indexes.
+- RLS enabled on all 15 public application tables.
+- End-user financial writes are not directly granted; future writes go through the Application/Domain command layer.
+- `customer_account_balances` uses `security_invoker=true` and remains a derived view, not financial truth.
+- TypeScript ledger invariant tests pass in CI.
+- A temporary transactional database verification proved deterministic balances, immutable entries/posted transactions, and exact reversal behavior; all verification data was rolled back.
+- Supabase Security Advisor has no findings.
+- All initial unindexed-FK Performance Advisor findings were resolved. Remaining `unused_index` notices are INFO-only and expected before real workload exists.
 
-Exit criteria: test data can be posted and balances can be rebuilt deterministically from ledger entries without trusting cached balances.
+Detailed verification is recorded in `docs/LEDGER_V1.md`.
+
+Exit criteria met: balances were rebuilt deterministically from posted ledger entries without trusting cached balances.
 
 ## Phase 2 — Identity and onboarding
+Status: NEXT.
+
 - Supabase Auth with phone OTP.
 - UX: name + phone number + OTP only.
 - UUID is the permanent internal identity; phone number is mutable and never a financial key.
 - Profiles and Customer Identity claim flow.
 - Secure mobile session persistence.
 - Recovery and phone-change flow.
+- Introduce narrow, audited Application/Domain commands required for safe onboarding rather than granting broad client table writes.
 
 Exit criteria: a new user can sign up and return with minimal friction while RLS prevents cross-user/business access.
 
@@ -132,4 +139,4 @@ A feature/change is complete only when applicable items are satisfied:
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Begin Phase 1: review and freeze Schema v1, then create the first production migration for the financial core with RLS and ledger invariant tests.
+Begin Phase 2: define and implement the phone-OTP identity/onboarding flow and the narrow server-side commands required to create/update profiles and claim customer identities safely.
