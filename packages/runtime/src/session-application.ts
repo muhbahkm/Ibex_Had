@@ -84,6 +84,24 @@ export class IbexSessionApplication {
     return this.application.reverseTransaction(await this.context(requestId), input);
   }
 
+  async listBusinesses(requestId?: string) {
+    return this.application.listBusinesses(await this.context(requestId));
+  }
+
+  async listBusinessCustomers(
+    input: Parameters<IbexApplication['listBusinessCustomers']>[1],
+    requestId?: string,
+  ) {
+    return this.application.listBusinessCustomers(await this.context(requestId), input);
+  }
+
+  async listCustomerAccounts(
+    input: Parameters<IbexApplication['listCustomerAccounts']>[1],
+    requestId?: string,
+  ) {
+    return this.application.listCustomerAccounts(await this.context(requestId), input);
+  }
+
   async getStatement(
     input: Parameters<IbexApplication['getStatement']>[1],
     requestId?: string,
