@@ -73,10 +73,8 @@ export default function CustomerAccountsScreen() {
         { businessCustomerId, currencyCode },
         `mobile-account-${Date.now().toString(36)}`,
       )
-      .then(() => {
-        const cleanup = load();
-        cleanup();
-      })
+      .then(() => ibex.listCustomerAccounts({ businessCustomerId }))
+      .then((rows) => setAccounts(rows))
       .catch((openError: unknown) => setError(message(openError)))
       .finally(() => setOpening(null));
   };
