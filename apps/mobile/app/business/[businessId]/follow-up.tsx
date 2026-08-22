@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../../src/features/auth/auth-context';
 import { listCollectionTodayPlan } from '../../../src/lib/collection-engagement';
 import { formatMinorUnits } from '../../../src/lib/money-display';
-import { EmptyState, ErrorState, InlineFeedback, LoadingState, Surface } from '../../../src/ui/primitives';
+import { Button, EmptyState, ErrorState, InlineFeedback, LoadingState, Surface } from '../../../src/ui/primitives';
 import { MetricStrip, SectionHeading, StatusBadge } from '../../../src/ui/operational-primitives';
 import { SecondaryShell } from '../../../src/ui/secondary-shell';
 import { theme } from '../../../src/ui/theme';
@@ -85,39 +85,57 @@ export default function FollowUpQueueScreen() {
             ]} />
 
             <View style={styles.section}>
-              <SectionHeading title="خطة التنفيذ" caption="الأسباب واضحة وقابلة للتدقيق؛ لا يوجد ترتيب غامض مبني على AI غير مفسر." />
+              <SectionHeading title="خطة التنفيذ" caption="الأسباب واضحة وقابلة للتدقيق؛ المسودة المقترحة تعتمد على هذه الحقائق ولا تُرسل تلقائيًا." />
               {rows.length === 0 ? <EmptyState title="لا توجد متابعة في الخطة" message="لا توجد استحقاقات أو وعود أو إجراءات مجدولة ضمن نافذة اليوم." /> : null}
               <View style={styles.list}>
                 {rows.map((row) => {
                   const priority = priorityMeta(row.priorityBucket);
+                  const balanceDisplay = formatMinorUnits(row.balanceMinor, row.currencyCode);
+                  const dueDateDisplay = new Date(row.oldestDueAt).toLocaleDateString('en-GB');
+                  const promisedForDisplay = row.promisedFor ? new Date(`${row.promisedFor}T00:00:00`).toLocaleDateString('en-GB') : undefined;
+                  const promisedAmountDisplay = row.promisedAmountMinor !== undefined ? formatMinorUnits(row.promisedAmountMinor, row.currencyCode) : undefined;
                   return (
-                    <Pressable
-                      key={row.accountId}
-                      onPress={() => router.push({
-                        pathname: '/business/[businessId]/collection-contact',
-                        params: { businessId, businessName, businessCustomerId: row.businessCustomerId, accountId: row.accountId, displayName: row.displayName, currencyCode: row.currencyCode },
-                      })}
-                      style={({ pressed }) => pressed ? styles.pressed : undefined}
-                    >
-                      <Surface variant={row.priorityBucket === 'urgent' ? 'tinted' : 'outlined'}>
-                        <View style={styles.rowTop}>
-                          <View style={styles.nameWrap}>
-                            <Text style={styles.name}>{row.displayName}</Text>
-                            <View style={styles.badges}><StatusBadge tone={priority.tone}>{priority.label}</StatusBadge><StatusBadge tone="neutral">{String(row.priorityScore)}</StatusBadge></View>
+                    <View key={row.accountId} style={styles.planItem}>
+                      <Pressable
+                        onPress={() => router.push({
+                          pathname: '/business/[businessId]/collection-contact',
+                          params: { businessId, businessName, businessCustomerId: row.businessCustomerId, accountId: row.accountId, displayName: row.displayName, currencyCode: row.currencyCode },
+                        })}
+                        style={({ pressed }) => pressed ? styles.pressed : undefined}
+                      >
+                        <Surface variant={row.priorityBucket === 'urgent' ? 'tinted' : 'outlined'}>
+                          <View style={styles.rowTop}>
+                            <View style={styles.nameWrap}>
+                              <Text style={styles.name}>{row.displayName}</Text>
+                              <View style={styles.badges}><StatusBadge tone={priority.tone}>{priority.label}</StatusBadge><StatusBadge tone="neutral">{String(row.priorityScore)}</StatusBadge></View>
+                            </View>
+                            <Text style={styles.amount}>{balanceDisplay}</Text>
                           </View>
-                          <Text style={styles.amount}>{formatMinorUnits(row.balanceMinor, row.currencyCode)}</Text>
-                        </View>
-                        <Text style={styles.action}>{actionLabel(row.recommendedAction)}</Text>
-                        <View style={styles.metaGrid}>
-                          <Text style={styles.metaText}>الاستحقاق: {new Date(row.oldestDueAt).toLocaleDateString('en-GB')}</Text>
-                          {row.daysOverdue > 0 ? <Text style={styles.dangerText}>متجاوز للمهلة منذ {String(row.daysOverdue)} يوم</Text> : null}
-                          {row.lastFollowUpAt ? <Text style={styles.metaText}>آخر متابعة: {new Date(row.lastFollowUpAt).toLocaleDateString('en-GB')}</Text> : <Text style={styles.metaText}>لا توجد متابعة سابقة</Text>}
-                          {row.promisedFor ? <Text style={styles.promiseText}>وعد بالسداد: {new Date(`${row.promisedFor}T00:00:00`).toLocaleDateString('en-GB')}</Text> : null}
-                          {row.nextActionAt ? <Text style={styles.metaText}>إجراء مجدول: {new Date(row.nextActionAt).toLocaleDateString('en-GB')}</Text> : null}
-                        </View>
-                        <Text style={styles.openHint}>اضغط لتسجيل نتيجة المتابعة أو وعد جديد</Text>
-                      </Surface>
-                    </Pressable>
+                          <Text style={styles.action}>{actionLabel(row.recommendedAction)}</Text>
+                          <View style={styles.metaGrid}>
+                            <Text style={styles.metaText}>الاستحقاق: {dueDateDisplay}</Text>
+                            {row.daysOverdue > 0 ? <Text style={styles.dangerText}>متجاوز للمهلة منذ {String(row.daysOverdue)} يوم</Text> : null}
+                            {row.lastFollowUpAt ? <Text style={styles.metaText}>آخر متابعة: {new Date(row.lastFollowUpAt).toLocaleDateString('en-GB')}</Text> : <Text style={styles.metaText}>لا توجد متابعة سابقة</Text>}
+                            {promisedForDisplay ? <Text style={styles.promiseText}>وعد بالسداد: {promisedForDisplay}</Text> : null}
+                            {row.nextActionAt ? <Text style={styles.metaText}>إجراء مجدول: {new Date(row.nextActionAt).toLocaleDateString('en-GB')}</Text> : null}
+                          </View>
+                          <Text style={styles.openHint}>اضغط لتسجيل نتيجة المتابعة أو وعد جديد</Text>
+                        </Surface>
+                      </Pressable>
+                      <Button
+                        variant="ghost"
+                        onPress={() => router.push({
+                          pathname: '/business/[businessId]/follow-up-message',
+                          params: {
+                            businessId, businessName, displayName: row.displayName, currencyCode: row.currencyCode,
+                            balanceDisplay, dueDateDisplay, daysOverdue: String(row.daysOverdue), recommendedAction: row.recommendedAction,
+                            reasonCode: row.reasonCode,
+                            ...(promisedForDisplay ? { promisedForDisplay } : {}),
+                            ...(promisedAmountDisplay ? { promisedAmountDisplay } : {}),
+                          },
+                        })}
+                      >إنشاء مسودة متابعة</Button>
+                    </View>
                   );
                 })}
               </View>
@@ -134,7 +152,8 @@ const styles = StyleSheet.create({
   title: { color: theme.colors.text, fontSize: theme.typography.styles.heading.fontSize, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
   body: { color: theme.colors.textMuted, marginTop: theme.spacing.sm, lineHeight: 24, textAlign: 'right', writingDirection: 'rtl' },
   section: { gap: theme.spacing.md },
-  list: { gap: theme.spacing.sm },
+  list: { gap: theme.spacing.md },
+  planItem: { gap: theme.spacing.xs },
   rowTop: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'flex-start', gap: theme.spacing.md },
   nameWrap: { flex: 1, gap: theme.spacing.xs, alignItems: 'flex-end' },
   name: { color: theme.colors.text, fontWeight: '800', fontSize: theme.typography.styles.bodyStrong.fontSize, textAlign: 'right', writingDirection: 'rtl' },
