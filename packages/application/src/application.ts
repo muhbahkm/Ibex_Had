@@ -30,6 +30,14 @@ function normalizeCountryCode(value: string): string {
   return normalized;
 }
 
+function normalizeLimit(value: number | undefined, fallback: number, maximum: number): number {
+  const limit = value ?? fallback;
+  if (!Number.isInteger(limit) || limit < 1 || limit > maximum) {
+    throw new Error(`Limit must be an integer between 1 and ${maximum}`);
+  }
+  return limit;
+}
+
 export class IbexApplication {
   constructor(private readonly repository: ApplicationRepository) {}
 
@@ -161,6 +169,39 @@ export class IbexApplication {
     });
   }
 
+  async listBusinesses(context: RequestContext) {
+    return this.repository.listBusinesses({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+    });
+  }
+
+  async listBusinessCustomers(
+    context: RequestContext,
+    input: {
+      readonly businessId: string;
+      readonly limit?: number;
+      readonly search?: string;
+    },
+  ) {
+    const search = input.search?.trim();
+    return this.repository.listBusinessCustomers({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+      businessId: requireId(input.businessId, 'businessId'),
+      limit: normalizeLimit(input.limit, 100, 200),
+      ...(search ? { search } : {}),
+    });
+  }
+
+  async listCustomerAccounts(
+    context: RequestContext,
+    input: { readonly businessCustomerId: string },
+  ) {
+    return this.repository.listCustomerAccounts({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+      businessCustomerId: requireId(input.businessCustomerId, 'businessCustomerId'),
+    });
+  }
+
   async getStatement(
     context: RequestContext,
     input: {
@@ -169,10 +210,7 @@ export class IbexApplication {
       readonly beforeOccurredAt?: string;
     },
   ) {
-    const limit = input.limit ?? 50;
-    if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
-      throw new Error('Statement limit must be an integer between 1 and 200');
-    }
+    const limit = normalizeLimit(input.limit, 50, 200);
 
     return this.repository.getStatement({
       actorUserId: requireId(context.actorUserId, 'actorUserId'),
