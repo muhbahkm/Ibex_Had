@@ -2,10 +2,10 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { useAuth } from '../../src/features/auth/auth-context';
-import { ibex } from '../../src/lib/ibex';
-import { AppScreen, ErrorMessage, Field, Heading, PrimaryButton } from '../../src/ui/primitives';
-import { theme } from '../../src/ui/theme';
+import { useAuth } from '../../../src/features/auth/auth-context';
+import { ibex } from '../../../src/lib/ibex';
+import { AppScreen, ErrorMessage, Field, Heading, PrimaryButton } from '../../../src/ui/primitives';
+import { theme } from '../../../src/ui/theme';
 
 function param(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
