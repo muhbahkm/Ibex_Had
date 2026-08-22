@@ -12,12 +12,18 @@ import {
 import { useAuth } from '../src/features/auth/auth-context';
 import { requestPhoneOtp } from '../src/features/auth/auth-service';
 import {
+  isConfiguredPreviewManagerPhone,
+  previewManagerPersona,
+} from '../src/features/auth/preview-persona';
+import {
   AppScreen,
   BrandMark,
   ErrorMessage,
   Field,
   Heading,
+  InlineFeedback,
   PrimaryButton,
+  Surface,
 } from '../src/ui/primitives';
 import { theme } from '../src/ui/theme';
 
@@ -47,20 +53,19 @@ export default function SignInScreen() {
       : <Redirect href="/home" />;
   }
 
-  const submit = () => {
+  const submitManagerPreview = () => {
+    try {
+      setError(null);
+      auth.enterManagerPreview();
+      router.replace('/home');
+    } catch (previewError: unknown) {
+      setError(errorMessage(previewError));
+    }
+  };
+
+  const submitPhoneAuth = () => {
     if (loading) return;
     setError(null);
-
-    if (isPreviewMode) {
-      try {
-        auth.enterPreview(fullName, phone);
-        router.replace('/home');
-      } catch (previewError: unknown) {
-        setError(errorMessage(previewError));
-      }
-      return;
-    }
-
     setLoading(true);
     void requestPhoneOtp({ fullName, phone })
       .then((pending) => {
@@ -88,57 +93,71 @@ export default function SignInScreen() {
         >
           <BrandMark />
           <Heading
-            title={inviteToken ? 'سجل الدخول لفتح دعوتك' : 'دفترك معك، بوضوح.'}
+            title={isPreviewMode ? 'مساحة المدير' : inviteToken ? 'سجل الدخول لفتح دعوتك' : 'دفترك معك، بوضوح.'}
             subtitle={isPreviewMode
-              ? 'وضع الاختبار مفعّل مؤقتًا. أدخل اسمك ورقم جوالك وسيتم اعتماد الرقم مباشرة دون OTP.'
+              ? 'نواصل تطوير التطبيق بهوية مدير ثابتة وآمنة للمعاينة، دون اعتبار رقم الجوال موثقًا إنتاجيًا.'
               : inviteToken
                 ? 'استخدم نفس رقم الجوال الذي سجله النشاط لك. بعد التحقق ستعود مباشرة إلى الدعوة.'
                 : 'أدخل اسمك ورقم جوالك. سنرسل رمز تحقق واحد لتأمين حسابك وربط دفاترك بك.'}
           />
 
           {isPreviewMode ? (
-            <View style={styles.previewNotice}>
-              <Text style={styles.previewNoticeTitle}>وضع اختبار</Text>
-              <Text style={styles.previewNoticeBody}>
-                لن يتم إرسال رسالة SMS. هذا الدخول محلي للمعاينة ولا يثبت ملكية الرقم في Supabase.
+            <View style={styles.previewStack}>
+              <Surface variant="tinted">
+                <Text style={styles.personaEyebrow}>مدير مساحة التطوير</Text>
+                <Text style={styles.personaName}>{previewManagerPersona.fullName}</Text>
+                <Text style={styles.personaMeta}>{previewManagerPersona.businessName} · Manager</Text>
+              </Surface>
+
+              <InlineFeedback tone="info">
+                {isConfiguredPreviewManagerPhone()
+                  ? 'تم تحميل رقم مدير المعاينة من إعداد محلي. الرقم لا يُحفظ في GitHub ولا يمنح أي صلاحية إنتاجية.'
+                  : 'يُستخدم رقم تجريبي اصطناعي حاليًا. يمكن ضبط رقم المدير الحقيقي محليًا عبر متغير البيئة المخصص دون حفظه في GitHub.'}
+              </InlineFeedback>
+
+              <PrimaryButton onPress={submitManagerPreview}>الدخول إلى مساحة المدير</PrimaryButton>
+              <Text style={styles.privacy}>
+                هذا المسار للمعاينة والتطوير فقط. سيتم ربط التحقق الحقيقي عبر OTP/WhatsApp لاحقًا قبل أي إصدار إنتاجي.
               </Text>
             </View>
-          ) : null}
+          ) : (
+            <>
+              <View style={styles.form}>
+                <Field
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  label="الاسم"
+                  onChangeText={setFullName}
+                  placeholder="مثال: محمد باحكم"
+                  returnKeyType="next"
+                  value={fullName}
+                />
+                <Field
+                  autoComplete="tel"
+                  keyboardType="phone-pad"
+                  label="رقم الجوال"
+                  onChangeText={setPhone}
+                  placeholder="777123456 أو +967777123456"
+                  returnKeyType="done"
+                  value={phone}
+                />
+                <ErrorMessage message={error} />
+                <PrimaryButton
+                  disabled={fullName.trim().length < 2 || phone.trim().length < 8}
+                  loading={loading}
+                  onPress={submitPhoneAuth}
+                >
+                  إرسال رمز التحقق
+                </PrimaryButton>
+              </View>
 
-          <View style={styles.form}>
-            <Field
-              autoCapitalize="words"
-              autoComplete="name"
-              label="الاسم"
-              onChangeText={setFullName}
-              placeholder="مثال: محمد باحكم"
-              returnKeyType="next"
-              value={fullName}
-            />
-            <Field
-              autoComplete="tel"
-              keyboardType="phone-pad"
-              label="رقم الجوال"
-              onChangeText={setPhone}
-              placeholder="777123456 أو +967777123456"
-              returnKeyType="done"
-              value={phone}
-            />
-            <ErrorMessage message={error} />
-            <PrimaryButton
-              disabled={fullName.trim().length < 2 || phone.trim().length < 8}
-              loading={loading}
-              onPress={submit}
-            >
-              {isPreviewMode ? 'اعتماد الرقم والدخول' : 'إرسال رمز التحقق'}
-            </PrimaryButton>
-          </View>
+              <Text style={styles.privacy}>
+                لا نستخدم رقم الجوال كمفتاح مالي. هويتك الداخلية دائمة ويمكن تغيير الرقم لاحقًا عبر مسار تحقق آمن.
+              </Text>
+            </>
+          )}
 
-          <Text style={styles.privacy}>
-            {isPreviewMode
-              ? 'سيعاد تفعيل التحقق الحقيقي قبل أي إصدار إنتاجي أو اختبار أمني نهائي.'
-              : 'لا نستخدم رقم الجوال كمفتاح مالي. هويتك الداخلية دائمة ويمكن تغيير الرقم لاحقًا عبر مسار تحقق آمن.'}
-          </Text>
+          {isPreviewMode ? <ErrorMessage message={error} /> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </AppScreen>
@@ -149,28 +168,38 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flexGrow: 1, paddingBottom: theme.spacing.xl },
   form: { marginTop: theme.spacing.sm },
-  previewNotice: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.surfaceMuted,
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-  },
-  previewNoticeTitle: {
-    color: theme.colors.text,
-    fontSize: theme.typography.body,
-    fontWeight: '800',
+  previewStack: { gap: theme.spacing.md },
+  personaEyebrow: {
+    color: theme.colors.accent,
+    fontSize: theme.typography.styles.captionStrong.fontSize,
+    lineHeight: theme.typography.styles.captionStrong.lineHeight,
+    fontWeight: theme.typography.styles.captionStrong.fontWeight,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  previewNoticeBody: {
+  personaName: {
+    color: theme.colors.text,
+    fontSize: theme.typography.styles.title.fontSize,
+    lineHeight: theme.typography.styles.title.lineHeight,
+    fontWeight: theme.typography.styles.title.fontWeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    marginTop: theme.spacing.xxs,
+  },
+  personaMeta: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.styles.caption.fontSize,
+    lineHeight: theme.typography.styles.caption.lineHeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    marginTop: theme.spacing.xxs,
+  },
+  privacy: {
     color: theme.colors.textMuted,
     fontSize: theme.typography.caption,
     lineHeight: 21,
-    marginTop: theme.spacing.xs,
     textAlign: 'right',
     writingDirection: 'rtl',
+    paddingTop: theme.spacing.md,
   },
-  privacy: { color: theme.colors.textMuted, fontSize: theme.typography.caption, lineHeight: 21, textAlign: 'right', writingDirection: 'rtl', marginTop: 'auto', paddingTop: theme.spacing.xl },
 });
