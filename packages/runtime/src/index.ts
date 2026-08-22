@@ -1,3 +1,4 @@
+export * from './collection-engagement-session.js';
 export * from './credit-followup-session.js';
 export * from './phone-auth.js';
 export * from './session-application.js';
