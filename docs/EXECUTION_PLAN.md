@@ -20,7 +20,7 @@ Completed:
 - Supabase Mumbai project `Ibex_Had v1` is the only active backend target.
 - GitHub is source of truth for code/migrations; Notion is product/architecture decision truth.
 - PR-based delivery, strict TypeScript, ESLint, Vitest, repository hygiene, PR template, CODEOWNERS, and environment conventions are established.
-- CI now runs lint, typecheck, tests, Expo dependency validation, Expo Doctor, and a real Android Metro/Expo bundle smoke test.
+- CI now runs lint, typecheck, tests, a real Next.js production build, Expo dependency validation, Expo Doctor, and a real Android Metro/Expo bundle smoke test.
 
 Administrative hardening still required in GitHub settings:
 - Change repository visibility from Public to Private.
@@ -48,6 +48,7 @@ Completed:
 - UUID is permanent identity; phone is mutable and never a financial key.
 - Yemen-first E.164 normalization, safe `complete_profile`, explicit customer-identity claim, audit trail, and secure session persistence are implemented.
 - Mobile Supabase session composition and SecureStore persistence are implemented.
+- Phone OTP orchestration is shared by Mobile and Web through Runtime; channel-specific UI only maps errors and presentation.
 - Phone OTP client flow, Arabic error handling, rate-limit messaging, and Yemen/Twilio production runbook are implemented.
 - A temporary `EXPO_PUBLIC_AUTH_MODE=preview` exists for device/UI testing without SMS. It creates only a local preview session and intentionally cannot access real financial data.
 
@@ -64,6 +65,7 @@ Status: COMPLETE AND BOUND TO A REAL SUPABASE SESSION CLIENT.
 Completed:
 - `IbexApplication` is provider/framework independent and shared by Mobile/Web/future ChatGPT/integrations.
 - Money crosses JavaScript boundaries losslessly as decimal integer strings → `bigint`.
+- Money display and major↔minor presentation rules are centralized in Core for consistent Mobile/Web behavior.
 - `ApplicationRepository` ports isolate use cases from Supabase and UI frameworks.
 - `SupabaseApplicationRepository` maps narrow RPCs and validates returned payloads.
 - `IbexSessionApplication` derives actor identity from the authenticated Supabase session; callers cannot supply their own actor id.
@@ -85,24 +87,38 @@ Completed:
 - Dispute/review screens for customer and merchant.
 - Transaction Documents v1 is merged through PR #21 with private attachment UX.
 - Notification Inbox v1 adds an inbox screen and unread badge while remaining independent from Push providers.
+- SDK 57 Development Build configuration is available with `expo-dev-client` and EAS profiles; actual cloud APK creation still requires a real Expo/EAS account session.
 - Expo dependency check, Expo Doctor, and Android bundle smoke test are enforced in CI.
 - SDK 57 SafeArea compatibility cleanup merged in PR #20.
 
 Current device-testing note:
 - The Google Play Expo Go client available on the test phone reports SDK 54 support while the project uses SDK 57. This is a test-host compatibility issue, not an application bundle failure.
-- Continue device testing with an SDK 57-compatible Expo Go binary or a project Development Build.
+- Continue device testing with the project-owned SDK 57 Development Build once EAS account linkage is completed.
 
 Exit criteria: a real authenticated merchant posts a transaction and a real customer sees the exact movement/balance/document on a physical device.
 
 ## Phase 5 — Merchant Web v1
-Status: NOT STARTED.
+Status: CORE MERCHANT VERTICAL SLICE IMPLEMENTED; LIVE AUTHENTICATED BROWSER VERIFICATION REMAINS.
 
-Planned:
-- Next.js + TypeScript.
-- Efficient customer/transaction management, search, filters, statements, and limited imports where justified.
-- Same Application/API contracts as mobile; no web-specific financial logic.
+Completed:
+- Next.js 16.3 + React 19 + TypeScript App Router foundation.
+- Supabase SSR cookie clients; protected server routes verify `auth.getClaims()` instead of trusting cookie-loaded `getSession()` for authorization.
+- Web uses the same `IbexSessionApplication`, Application Core, RLS, and narrow RPC surface as Mobile; no web-specific financial mutation logic exists.
+- Arabic RTL responsive login with name + phone + OTP and shared Runtime phone-auth orchestration.
+- Dashboard lists merchant businesses, customer-side accounts, and unread notifications.
+- Merchant workflow: Dashboard → business → customer search/list/create → currency accounts list/open → statement → sale/receipt → balance → reverse eligible transaction.
+- Customer search and financial views remain scoped through existing authorized read models rather than direct table reads.
+- Sale/receipt inputs use the shared Core major→minor conversion; money stays lossless across the JavaScript boundary.
+- Reversal is offered only when the statement read model returns `canReverse=true`; the command creates a separate reversal transaction and never edits posted history.
+- Next.js production build is a permanent CI gate alongside the Mobile/Expo gates.
+- NodeNext `.js` source imports are resolved only at the Webpack integration boundary via `resolve.extensionAlias`; the shared packages remain strict NodeNext.
 
-Exit criteria: merchant daily workflows on web produce identical financial outcomes to mobile.
+Remaining:
+- Verify the full flow in a real authenticated browser session against Supabase Phone Auth once live OTP is enabled.
+- Add transaction-document UX and dispute/inbox management to Merchant Web where it improves daily workflow.
+- Add higher-density search/filter/reporting only after the core workflow is validated with real usage.
+
+Exit criteria: merchant daily workflows on web produce identical financial outcomes to mobile under a real authenticated session.
 
 ## Phase 6 — Documents, disputes, notifications
 Status: BACKEND/CLIENT CORE COMPLETE; PHYSICAL-DEVICE DELIVERY VALIDATION REMAINS.
@@ -133,10 +149,10 @@ Already active:
 - Unit/integration contract tests and CI gates.
 - RLS/privilege verification after material backend changes.
 - Supabase Security/Performance Advisors after DDL changes.
-- Android bundle smoke test.
+- Next.js production build and Android bundle smoke tests.
 
 Still required:
-- Full RLS role/ownership matrix and mobile E2E coverage.
+- Full RLS role/ownership matrix and cross-channel E2E coverage.
 - Structured logs, monitoring/error tracking.
 - Backup/restore rehearsal.
 - Final Auth/API rate limits, abuse controls, secrets/release review.
@@ -171,4 +187,4 @@ A feature/change is complete only when applicable items are satisfied:
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Merge Notification Inbox v1 after its final green CI checkpoint, then return to physical-device Mobile v1 validation using an SDK 57-compatible Development Build. The two external release blockers remain live +967 OTP delivery and real-device document/notification verification; neither should weaken the existing authorization model.
+Validate Merchant Web and Mobile against real authenticated sessions once +967 Phone OTP is enabled, while completing the project-owned SDK 57 Development Build installation path. The next product-facing Web extensions are transaction documents and dispute/inbox workflows; no new financial logic should be introduced outside the shared Application/Domain Core.
