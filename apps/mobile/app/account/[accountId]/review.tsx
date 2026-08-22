@@ -1,18 +1,15 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { useAuth } from '../../../src/features/auth/auth-context';
 import { ibex } from '../../../src/lib/ibex';
-import { AppScreen, ErrorMessage, Field, Heading, PrimaryButton } from '../../../src/ui/primitives';
+import { Button, InlineFeedback, Surface, TextField } from '../../../src/ui/primitives';
+import { SecondaryShell } from '../../../src/ui/secondary-shell';
 import { theme } from '../../../src/ui/theme';
 
-function param(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
-}
-function message(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : 'تعذر إرسال طلب المراجعة.';
-}
+function param(value: string | string[] | undefined): string { return Array.isArray(value) ? (value[0] ?? '') : (value ?? ''); }
+function message(error: unknown): string { return error instanceof Error && error.message ? error.message : 'تعذر إرسال طلب المراجعة.'; }
 
 export default function ReviewTransactionScreen() {
   const router = useRouter();
@@ -34,54 +31,46 @@ export default function ReviewTransactionScreen() {
     if (loading || reason.trim().length < 3) return;
     setLoading(true);
     setError(null);
-    void ibex
-      .openDispute({ transactionId, reason }, `mobile-dispute-${Date.now().toString(36)}`)
+    void ibex.openDispute({ transactionId, reason }, `mobile-dispute-${Date.now().toString(36)}`)
       .then(() => setDone(true))
       .catch((submitError: unknown) => setError(message(submitError)))
       .finally(() => setLoading(false));
   };
 
   return (
-    <AppScreen>
+    <SecondaryShell title={done ? 'تم إرسال الطلب' : 'طلب مراجعة حركة'} subtitle={done ? 'بانتظار مراجعة النشاط' : movementLabel} onBack={() => router.back()}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>رجوع</Text>
-        </Pressable>
-        <Heading
-          title={done ? 'تم إرسال طلب المراجعة' : 'طلب مراجعة حركة'}
-          subtitle={done ? 'ستبقى الحركة كما هي في السجل المالي حتى يراجعها النشاط ويرد على الطلب.' : `${movementLabel}${amount ? ` · ${amount}` : ''}`}
-        />
-
         {done ? (
-          <PrimaryButton onPress={() => router.back()}>العودة إلى كشف الحساب</PrimaryButton>
+          <>
+            <Surface variant="tinted">
+              <Text style={styles.successTitle}>تم استلام طلبك</Text>
+              <Text style={styles.successBody}>بقيت الحركة والرصيد كما هما. سيستطيع النشاط مراجعة الطلب والرد عليه دون تعديل التاريخ المالي بصمت.</Text>
+            </Surface>
+            <Button onPress={() => router.back()}>العودة إلى كشف الحساب</Button>
+          </>
         ) : (
           <>
-            <Field
-              label="سبب طلب المراجعة"
-              multiline
-              numberOfLines={5}
-              onChangeText={setReason}
-              placeholder="اكتب باختصار ما الذي تعتقد أنه يحتاج إلى مراجعة..."
-              style={styles.reasonInput}
-              textAlignVertical="top"
-              value={reason}
-            />
-            <Text style={styles.note}>طلب المراجعة لا يحذف الحركة ولا يغيّر الرصيد تلقائيًا.</Text>
-            <ErrorMessage message={error} />
-            <PrimaryButton disabled={reason.trim().length < 3} loading={loading} onPress={submit}>
-              إرسال طلب المراجعة
-            </PrimaryButton>
+            <Surface variant="outlined">
+              <Text style={styles.movementTitle}>{movementLabel}</Text>
+              {amount ? <Text style={styles.amount}>{amount}</Text> : null}
+              <Text style={styles.movementBody}>طلب المراجعة قناة اعتراض مستقلة عن Ledger، ولا يحذف الحركة أو يغيّر الرصيد تلقائيًا.</Text>
+            </Surface>
+            <TextField label="سبب طلب المراجعة" multiline numberOfLines={5} onChangeText={setReason} placeholder="اكتب باختصار ما الذي يحتاج إلى مراجعة..." style={styles.reasonInput} textAlignVertical="top" value={reason} />
+            {error ? <InlineFeedback tone="danger">{error}</InlineFeedback> : null}
+            <Button disabled={reason.trim().length < 3} loading={loading} onPress={submit}>إرسال طلب المراجعة</Button>
           </>
         )}
       </ScrollView>
-    </AppScreen>
+    </SecondaryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: theme.spacing.xl },
-  backButton: { alignSelf: 'flex-start', paddingVertical: theme.spacing.sm, marginBottom: theme.spacing.md },
-  backText: { color: theme.colors.textMuted, fontWeight: '700', writingDirection: 'rtl' },
+  content: { gap: theme.spacing.lg, paddingTop: theme.spacing.lg, paddingBottom: theme.spacing.xl },
+  movementTitle: { color: theme.colors.text, fontSize: theme.typography.styles.heading.fontSize, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
+  amount: { color: theme.colors.text, fontSize: theme.typography.styles.title.fontSize, fontWeight: '800', marginTop: theme.spacing.sm, textAlign: 'right', writingDirection: 'ltr' },
+  movementBody: { color: theme.colors.textMuted, lineHeight: 24, marginTop: theme.spacing.md, textAlign: 'right', writingDirection: 'rtl' },
   reasonInput: { minHeight: 130, paddingTop: theme.spacing.md },
-  note: { color: theme.colors.textMuted, fontSize: theme.typography.caption, lineHeight: 21, textAlign: 'right', writingDirection: 'rtl', marginBottom: theme.spacing.md },
+  successTitle: { color: theme.colors.success, fontSize: theme.typography.styles.heading.fontSize, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
+  successBody: { color: theme.colors.textMuted, lineHeight: 24, marginTop: theme.spacing.sm, textAlign: 'right', writingDirection: 'rtl' },
 });
