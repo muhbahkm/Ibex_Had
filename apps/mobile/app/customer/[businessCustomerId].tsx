@@ -1,4 +1,4 @@
-import type { CustomerAccountSummaryRecord } from '../../../packages/application/src/ports';
+import type { CustomerAccountSummaryRecord } from '../../../../packages/application/src/ports';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
