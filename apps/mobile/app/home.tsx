@@ -7,12 +7,13 @@ import { theme } from '../src/ui/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { session, signOut } = useAuth();
+  const auth = useAuth();
+  const { session } = auth;
 
   if (!session) return <Redirect href="/sign-in" />;
 
   const logout = () => {
-    void signOut();
+    void auth.signOut();
   };
 
   return (
