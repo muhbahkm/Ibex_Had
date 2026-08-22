@@ -67,7 +67,7 @@ function id(value: string, field: string): string { const normalized = value.tri
 function int(value: number, field: string, min: number, max: number): number { if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${field} must be an integer between ${min} and ${max}`); return value; }
 function date(value: string | undefined, field: string): string | undefined { const normalized = value?.trim(); if (!normalized) return undefined; if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) throw new Error(`${field} must use YYYY-MM-DD`); return normalized; }
 function dateTime(value: string | undefined, field: string): string | undefined { const normalized = value?.trim(); if (!normalized) return undefined; if (Number.isNaN(Date.parse(normalized))) throw new Error(`${field} must be a valid ISO date-time`); return normalized; }
-function note(value: string | undefined): string | undefined { const normalized = value?.trim().replace(/\s+/g, ' '); if (!normalized) return undefined; if (normalized.length > 2000) throw new Error('note must not exceed 2000 characters'); return normalized; }
+function normalizeNote(value: string | undefined): string | undefined { const normalized = value?.trim().replace(/\s+/g, ' '); if (!normalized) return undefined; if (normalized.length > 2000) throw new Error('note must not exceed 2000 characters'); return normalized; }
 function amount(value: string | undefined): bigint | undefined { if (value === undefined || value.trim() === '') return undefined; if (!/^\d+$/.test(value.trim())) throw new Error('promisedAmountMinor must contain positive minor units'); const parsed = BigInt(value.trim()); if (parsed <= 0n) throw new Error('promisedAmountMinor must be positive'); return parsed; }
 
 export class CollectionEngagementService {
@@ -87,6 +87,8 @@ export class CollectionEngagementService {
   }) {
     const promisedFor = date(input.promisedFor, 'promisedFor');
     const promisedAmountMinor = amount(input.promisedAmountMinor);
+    const normalizedNote = normalizeNote(input.note);
+    const nextActionAt = dateTime(input.nextActionAt, 'nextActionAt');
     if (input.eventKind === 'promise_to_pay' && !promisedFor) throw new Error('promisedFor is required for promise_to_pay');
     if (input.eventKind !== 'promise_to_pay' && (promisedFor || promisedAmountMinor !== undefined || input.currencyCode)) throw new Error('Promise fields require promise_to_pay');
     return this.repository.recordEvent({
@@ -96,11 +98,11 @@ export class CollectionEngagementService {
       eventKind: input.eventKind,
       ...(input.channel ? { channel: input.channel } : {}),
       ...(input.outcome ? { outcome: input.outcome } : {}),
-      ...(note(input.note) ? { note: note(input.note) } : {}),
+      ...(normalizedNote ? { note: normalizedNote } : {}),
       ...(promisedAmountMinor !== undefined ? { promisedAmountMinor } : {}),
       ...(input.currencyCode ? { currencyCode: input.currencyCode.trim().toUpperCase() } : {}),
       ...(promisedFor ? { promisedFor } : {}),
-      ...(dateTime(input.nextActionAt, 'nextActionAt') ? { nextActionAt: dateTime(input.nextActionAt, 'nextActionAt') } : {}),
+      ...(nextActionAt ? { nextActionAt } : {}),
       ...(context.requestId ? { requestId: context.requestId } : {}),
     });
   }
