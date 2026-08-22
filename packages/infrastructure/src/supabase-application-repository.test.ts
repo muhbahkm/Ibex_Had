@@ -22,101 +22,48 @@ class RecordingRpcClient implements SupabaseRpcClient {
 describe('SupabaseApplicationRepository', () => {
   it('serializes bigint money as decimal text for JSON-safe RPC transport', async () => {
     const client = new RecordingRpcClient({
-      data: {
-        transactionId: 'tx-1',
-        accountId: 'account-1',
-        balanceMinor: '900719925474099312345',
-        currencyCode: 'YER',
-      },
+      data: { transactionId: 'tx-1', accountId: 'account-1', balanceMinor: '900719925474099312345', currencyCode: 'YER' },
       error: null,
     });
     const repository = new SupabaseApplicationRepository(client);
-
-    const result = await repository.postMovement({
-      actorUserId: 'user-1',
-      businessId: 'business-1',
-      customerIdentityId: 'customer-1',
-      accountId: 'account-1',
-      transactionType: 'sale_on_account',
-      direction: 'debit',
-      amountMinor: 900719925474099312345n,
-      currencyCode: 'YER',
-      idempotencyKey: 'sale-command-0001',
-    });
-
+    const result = await repository.postMovement({ actorUserId: 'user-1', businessId: 'business-1', customerIdentityId: 'customer-1', accountId: 'account-1', transactionType: 'sale_on_account', direction: 'debit', amountMinor: 900719925474099312345n, currencyCode: 'YER', idempotencyKey: 'sale-command-0001' });
     expect(client.functionName).toBe('app_post_movement');
     expect(client.args?.p_amount_minor).toBe('900719925474099312345');
     expect(result.balanceMinor).toBe(900719925474099312345n);
   });
 
-  it('maps snake_case statement rows and preserves lossless balances', async () => {
+  it('maps statement v2 rows including server-computed reversal eligibility', async () => {
     const client = new RecordingRpcClient({
-      data: [
-        {
-          transaction_id: 'tx-2',
-          transaction_type: 'receipt',
-          occurred_at: '2026-08-22T10:00:00+00:00',
-          description: 'قبض',
-          effect_minor: '-400',
-          balance_after_minor: '600',
-          currency_code: 'YER',
-        },
-      ],
+      data: [{ transaction_id: 'tx-2', transaction_type: 'receipt', transaction_status: 'posted', occurred_at: '2026-08-22T10:00:00+00:00', description: 'قبض', effect_minor: '-400', balance_after_minor: '600', currency_code: 'YER', can_reverse: true }],
       error: null,
     });
     const repository = new SupabaseApplicationRepository(client);
+    const rows = await repository.getStatement({ actorUserId: 'user-1', accountId: 'account-1', limit: 50 });
+    expect(client.functionName).toBe('app_get_statement_v2');
+    expect(rows).toEqual([{ transactionId: 'tx-2', transactionType: 'receipt', transactionStatus: 'posted', occurredAt: '2026-08-22T10:00:00+00:00', description: 'قبض', effectMinor: -400n, balanceAfterMinor: 600n, currencyCode: 'YER', canReverse: true }]);
+  });
 
-    const rows = await repository.getStatement({
-      actorUserId: 'user-1',
-      accountId: 'account-1',
-      limit: 50,
+  it('maps claimed customer accounts losslessly', async () => {
+    const client = new RecordingRpcClient({
+      data: [{ business_id: 'business-1', business_name: 'باحكم للعسل', business_customer_id: 'relationship-1', customer_identity_id: 'customer-1', account_id: 'account-1', currency_code: 'YER', account_status: 'open', balance_minor: '900719925474099312345' }],
+      error: null,
     });
-
-    expect(rows).toEqual([
-      {
-        transactionId: 'tx-2',
-        transactionType: 'receipt',
-        occurredAt: '2026-08-22T10:00:00+00:00',
-        description: 'قبض',
-        effectMinor: -400n,
-        balanceAfterMinor: 600n,
-        currencyCode: 'YER',
-      },
-    ]);
+    const repository = new SupabaseApplicationRepository(client);
+    const rows = await repository.listMyCustomerAccounts({ actorUserId: 'user-1' });
+    expect(client.functionName).toBe('app_list_my_customer_accounts');
+    expect(rows[0]?.businessName).toBe('باحكم للعسل');
+    expect(rows[0]?.balanceMinor).toBe(900719925474099312345n);
   });
 
   it('preserves structured RPC failures as InfrastructureError', async () => {
-    const client = new RecordingRpcClient({
-      data: null,
-      error: { message: 'Business mutation is not permitted', code: '42501' },
-    });
+    const client = new RecordingRpcClient({ data: null, error: { message: 'Business mutation is not permitted', code: '42501' } });
     const repository = new SupabaseApplicationRepository(client);
-
-    await expect(
-      repository.createCustomer({
-        actorUserId: 'user-1',
-        businessId: 'business-1',
-        displayName: 'عميل',
-      }),
-    ).rejects.toMatchObject({
-      name: 'InfrastructureError',
-      code: '42501',
-    });
+    await expect(repository.createCustomer({ actorUserId: 'user-1', businessId: 'business-1', displayName: 'عميل' })).rejects.toMatchObject({ name: 'InfrastructureError', code: '42501' });
   });
 
   it('rejects malformed RPC payloads instead of silently coercing them', async () => {
-    const client = new RecordingRpcClient({
-      data: { transactionId: 'tx-1', accountId: 'account-1', balanceMinor: 'bad', currencyCode: 'YER' },
-      error: null,
-    });
+    const client = new RecordingRpcClient({ data: { transactionId: 'tx-1', accountId: 'account-1', balanceMinor: 'bad', currencyCode: 'YER' }, error: null });
     const repository = new SupabaseApplicationRepository(client);
-
-    await expect(
-      repository.reverseTransaction({
-        actorUserId: 'user-1',
-        transactionId: 'tx-1',
-        idempotencyKey: 'reverse-command-001',
-      }),
-    ).rejects.toBeInstanceOf(InfrastructureError);
+    await expect(repository.reverseTransaction({ actorUserId: 'user-1', transactionId: 'tx-1', idempotencyKey: 'reverse-command-001' })).rejects.toBeInstanceOf(InfrastructureError);
   });
 });
