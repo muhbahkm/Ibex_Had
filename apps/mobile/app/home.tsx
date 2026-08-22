@@ -1,14 +1,47 @@
-import { Redirect, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { BusinessSummaryRecord } from '../../../packages/application/src/ports';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../src/features/auth/auth-context';
-import { AppScreen, BrandMark, Heading, PrimaryButton } from '../src/ui/primitives';
+import { ibex } from '../src/lib/ibex';
+import { AppScreen, BrandMark, ErrorMessage, Heading, PrimaryButton } from '../src/ui/primitives';
 import { theme } from '../src/ui/theme';
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return 'تعذر تحميل الأنشطة.';
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
   const { session } = auth;
+  const [businesses, setBusinesses] = useState<readonly BusinessSummaryRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setLoading(true);
+      setError(null);
+      void ibex
+        .listBusinesses()
+        .then((rows) => {
+          if (active) setBusinesses(rows);
+        })
+        .catch((loadError: unknown) => {
+          if (active) setError(errorMessage(loadError));
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   if (!session) return <Redirect href="/sign-in" />;
 
@@ -18,108 +51,116 @@ export default function HomeScreen() {
 
   return (
     <AppScreen>
-      <View style={styles.headerRow}>
-        <BrandMark />
-        <Pressable onPress={logout} style={styles.signOutButton}>
-          <Text style={styles.signOutText}>تسجيل الخروج</Text>
-        </Pressable>
-      </View>
-
-      <Heading
-        title="مساحة العمل"
-        subtitle="ابدأ بنشاطك التجاري. جميع الحركات المالية ستعبر من نفس النواة التشغيلية الموثقة."
-      />
-
-      <View style={styles.statusCard}>
-        <View style={styles.statusDot} />
-        <View style={styles.statusContent}>
-          <Text style={styles.statusTitle}>الجلسة آمنة ومتصلة</Text>
-          <Text style={styles.statusBody} numberOfLines={1}>
-            {session.user.phone ?? 'حساب موثق'}
-          </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <BrandMark />
+          <Pressable onPress={logout} style={styles.signOutButton}>
+            <Text style={styles.signOutText}>تسجيل الخروج</Text>
+          </Pressable>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>البدء</Text>
-        <Text style={styles.sectionBody}>
-          أنشئ نشاطك الأول، ثم سننتقل لإضافة العملاء والحركات وكشوف الحساب.
-        </Text>
+        <Heading title="مساحة العمل" subtitle="اختر نشاطًا لإدارة العملاء والحسابات والحركات." />
+
+        <ErrorMessage message={error} />
+        {loading ? <ActivityIndicator style={styles.loader} color={theme.colors.primary} /> : null}
+
+        {!loading && businesses.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>لا يوجد نشاط بعد</Text>
+            <Text style={styles.emptyBody}>أنشئ نشاطك الأول، ثم أضف العملاء والحسابات.</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.list}>
+          {businesses.map((business) => (
+            <Pressable
+              key={business.businessId}
+              onPress={() =>
+                router.push({
+                  pathname: '/business/[businessId]/customers',
+                  params: { businessId: business.businessId, businessName: business.name },
+                })
+              }
+              style={({ pressed }) => [styles.businessCard, pressed ? styles.cardPressed : null]}
+            >
+              <View style={styles.businessMeta}>
+                <Text style={styles.businessName}>{business.name}</Text>
+                <Text style={styles.businessCaption}>
+                  {business.defaultCurrencyCode ?? 'بدون عملة افتراضية'} · {business.role}
+                </Text>
+              </View>
+              <Text style={styles.chevron}>‹</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <PrimaryButton onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</PrimaryButton>
-      </View>
+      </ScrollView>
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: { paddingBottom: theme.spacing.xl },
   headerRow: {
     flexDirection: 'row-reverse',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  signOutButton: {
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.sm,
-  },
+  signOutButton: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
   signOutText: {
     color: theme.colors.textMuted,
     fontSize: theme.typography.caption,
     fontWeight: '600',
     writingDirection: 'rtl',
   },
-  statusCard: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.lg,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.success,
-  },
-  statusContent: {
-    flex: 1,
-    gap: theme.spacing.xs,
-  },
-  statusTitle: {
-    color: theme.colors.text,
-    fontSize: theme.typography.body,
-    fontWeight: '700',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  statusBody: {
-    color: theme.colors.textMuted,
-    fontSize: theme.typography.caption,
-    textAlign: 'right',
-    writingDirection: 'ltr',
-  },
-  section: {
-    marginTop: theme.spacing.xl,
+  loader: { marginVertical: theme.spacing.lg },
+  emptyCard: {
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.surfaceMuted,
     borderRadius: theme.radius.lg,
+    marginBottom: theme.spacing.lg,
   },
-  sectionTitle: {
+  emptyTitle: {
     color: theme.colors.text,
     fontSize: theme.typography.heading,
     fontWeight: '700',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  sectionBody: {
+  emptyBody: {
     color: theme.colors.textMuted,
     fontSize: theme.typography.body,
-    lineHeight: 26,
+    marginTop: theme.spacing.sm,
     textAlign: 'right',
     writingDirection: 'rtl',
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
   },
+  list: { gap: theme.spacing.sm, marginBottom: theme.spacing.lg },
+  businessCard: {
+    minHeight: 82,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.lg,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardPressed: { opacity: 0.72 },
+  businessMeta: { flex: 1, gap: theme.spacing.xs },
+  businessName: {
+    color: theme.colors.text,
+    fontSize: theme.typography.heading,
+    fontWeight: '700',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  businessCaption: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.caption,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  chevron: { color: theme.colors.textMuted, fontSize: 28, marginRight: theme.spacing.md },
 });
