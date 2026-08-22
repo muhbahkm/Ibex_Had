@@ -45,6 +45,22 @@ export interface BusinessCollectionOverview {
   readonly customers: readonly CustomerCollectionSummary[];
 }
 
+export interface CollectionBackendRow {
+  readonly businessCustomerId: string;
+  readonly customerIdentityId: string;
+  readonly displayName: string;
+  readonly phoneE164?: string;
+  readonly accountCount: number;
+  readonly accountId?: string;
+  readonly currencyCode?: string;
+  readonly balanceMinor?: bigint;
+  readonly lastMovementAt?: string;
+}
+
+export interface CollectionBackendSource {
+  listBusinessCollectionRows(input: { readonly businessId: string; readonly limit: number }): Promise<readonly CollectionBackendRow[]>;
+}
+
 export interface CollectionDataSource {
   listBusinessCustomers(input: { readonly businessId: string; readonly limit: number }): Promise<readonly BusinessCustomerSummaryRecord[]>;
   listCustomerAccounts(input: { readonly businessCustomerId: string }): Promise<readonly CustomerAccountSummaryRecord[]>;
@@ -90,6 +106,41 @@ function currencySummaries(customers: readonly CustomerCollectionSummary[]): rea
     .map(([currencyCode, value]) => ({ currencyCode, ...value }));
 }
 
+function rankCustomers(customers: readonly CustomerCollectionSummary[]): readonly CustomerCollectionSummary[] {
+  return [...customers].sort((left, right) => {
+    const rank = { stale_debt: 0, active_debt: 1, clear: 2 } as const;
+    const stateDifference = rank[left.followUpState] - rank[right.followUpState];
+    if (stateDifference !== 0) return stateDifference;
+    if (left.debtAccountCount !== right.debtAccountCount) return right.debtAccountCount - left.debtAccountCount;
+    return (left.lastMovementAt ?? '').localeCompare(right.lastMovementAt ?? '');
+  });
+}
+
+function finalizeOverview(
+  businessId: string,
+  customers: readonly CustomerCollectionSummary[],
+  now: Date,
+  staleAfterDays: number,
+): BusinessCollectionOverview {
+  const ranked = rankCustomers(customers);
+  return {
+    businessId,
+    generatedAt: now.toISOString(),
+    staleAfterDays,
+    customerCount: ranked.length,
+    debtorCustomerCount: ranked.filter((customer) => customer.debtAccountCount > 0).length,
+    staleDebtorCustomerCount: ranked.filter((customer) => customer.followUpState === 'stale_debt').length,
+    currencies: currencySummaries(ranked),
+    customers: ranked,
+  };
+}
+
+function normalizeStaleAfterDays(value: number | undefined): number {
+  const staleAfterDays = value ?? 30;
+  if (!Number.isInteger(staleAfterDays) || staleAfterDays < 1 || staleAfterDays > 3650) throw new Error('staleAfterDays must be an integer between 1 and 3650');
+  return staleAfterDays;
+}
+
 async function accountSnapshot(dataSource: CollectionDataSource, account: CustomerAccountSummaryRecord): Promise<CollectionAccountSnapshot> {
   const statement = await dataSource.getStatement({ accountId: account.accountId, limit: 1 });
   const lastMovementAt = statement[0]?.occurredAt;
@@ -127,28 +178,55 @@ export async function assembleBusinessCollectionOverview(
   dataSource: CollectionDataSource,
   input: { readonly businessId: string; readonly limit: number; readonly staleAfterDays?: number; readonly now?: Date },
 ): Promise<BusinessCollectionOverview> {
-  const staleAfterDays = input.staleAfterDays ?? 30;
-  if (!Number.isInteger(staleAfterDays) || staleAfterDays < 1 || staleAfterDays > 3650) throw new Error('staleAfterDays must be an integer between 1 and 3650');
+  const staleAfterDays = normalizeStaleAfterDays(input.staleAfterDays);
   const now = input.now ?? new Date();
   const customerRows = await dataSource.listBusinessCustomers({ businessId: input.businessId, limit: input.limit });
   const customers = await Promise.all(customerRows.map((customer) => customerSummary(dataSource, customer, now, staleAfterDays)));
-  const ranked = [...customers].sort((left, right) => {
-    const rank = { stale_debt: 0, active_debt: 1, clear: 2 } as const;
-    const stateDifference = rank[left.followUpState] - rank[right.followUpState];
-    if (stateDifference !== 0) return stateDifference;
-    if (left.debtAccountCount !== right.debtAccountCount) return right.debtAccountCount - left.debtAccountCount;
-    return (left.lastMovementAt ?? '').localeCompare(right.lastMovementAt ?? '');
+  return finalizeOverview(input.businessId, customers, now, staleAfterDays);
+}
+
+export function assembleBusinessCollectionOverviewFromRows(
+  rows: readonly CollectionBackendRow[],
+  input: { readonly businessId: string; readonly staleAfterDays?: number; readonly now?: Date },
+): BusinessCollectionOverview {
+  const staleAfterDays = normalizeStaleAfterDays(input.staleAfterDays);
+  const now = input.now ?? new Date();
+  const byCustomer = new Map<string, { row: CollectionBackendRow; accounts: CollectionAccountSnapshot[] }>();
+  for (const row of rows) {
+    const current = byCustomer.get(row.businessCustomerId) ?? { row, accounts: [] };
+    if (row.accountId && row.currencyCode && row.balanceMinor !== undefined) {
+      current.accounts.push({
+        accountId: row.accountId,
+        currencyCode: row.currencyCode,
+        balanceMinor: row.balanceMinor,
+        ...(row.lastMovementAt ? { lastMovementAt: row.lastMovementAt } : {}),
+      });
+    }
+    byCustomer.set(row.businessCustomerId, current);
+  }
+  const customers = [...byCustomer.values()].map(({ row, accounts }) => {
+    const lastMovementAt = latestTimestamp(accounts.map((account) => account.lastMovementAt));
+    return {
+      businessCustomerId: row.businessCustomerId,
+      customerIdentityId: row.customerIdentityId,
+      displayName: row.displayName,
+      ...(row.phoneE164 ? { phoneE164: row.phoneE164 } : {}),
+      accountCount: row.accountCount,
+      debtAccountCount: accounts.filter((account) => account.balanceMinor > 0n).length,
+      ...(lastMovementAt ? { lastMovementAt } : {}),
+      followUpState: followUpState(accounts, now, staleAfterDays),
+      accounts,
+    } satisfies CustomerCollectionSummary;
   });
-  return {
-    businessId: input.businessId,
-    generatedAt: now.toISOString(),
-    staleAfterDays,
-    customerCount: ranked.length,
-    debtorCustomerCount: ranked.filter((customer) => customer.debtAccountCount > 0).length,
-    staleDebtorCustomerCount: ranked.filter((customer) => customer.followUpState === 'stale_debt').length,
-    currencies: currencySummaries(ranked),
-    customers: ranked,
-  };
+  return finalizeOverview(input.businessId, customers, now, staleAfterDays);
+}
+
+export async function getBusinessCollectionOverviewFromBackend(
+  source: CollectionBackendSource,
+  input: { readonly businessId: string; readonly limit: number; readonly staleAfterDays?: number; readonly now?: Date },
+): Promise<BusinessCollectionOverview> {
+  const rows = await source.listBusinessCollectionRows({ businessId: input.businessId, limit: input.limit });
+  return assembleBusinessCollectionOverviewFromRows(rows, input);
 }
 
 export async function buildBusinessCollectionOverview(
