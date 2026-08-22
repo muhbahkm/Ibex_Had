@@ -24,35 +24,57 @@ class RecordingRepository implements ApplicationRepository {
   reversalInput?: ReverseTransactionPortInput;
   statementInput?: GetStatementPortInput;
 
-  async createBusiness(input: CreateBusinessPortInput): Promise<BusinessRecord> {
+  createBusiness(input: CreateBusinessPortInput): Promise<BusinessRecord> {
     this.businessInput = input;
-    return { id: 'business-1', name: input.name, ...(input.defaultCurrencyCode ? { defaultCurrencyCode: input.defaultCurrencyCode } : {}) };
+    return Promise.resolve({
+      id: 'business-1',
+      name: input.name,
+      ...(input.defaultCurrencyCode ? { defaultCurrencyCode: input.defaultCurrencyCode } : {}),
+    });
   }
 
-  async createCustomer(input: CreateCustomerPortInput): Promise<CustomerRecord> {
+  createCustomer(input: CreateCustomerPortInput): Promise<CustomerRecord> {
     this.customerInput = input;
-    return { customerIdentityId: 'customer-1', businessCustomerId: 'relationship-1', displayName: input.displayName };
+    return Promise.resolve({
+      customerIdentityId: 'customer-1',
+      businessCustomerId: 'relationship-1',
+      displayName: input.displayName,
+    });
   }
 
-  async openCustomerAccount(input: OpenAccountPortInput): Promise<AccountRecord> {
+  openCustomerAccount(input: OpenAccountPortInput): Promise<AccountRecord> {
     this.accountInput = input;
-    return { id: 'account-1', businessCustomerId: input.businessCustomerId, currencyCode: input.currencyCode };
+    return Promise.resolve({
+      id: 'account-1',
+      businessCustomerId: input.businessCustomerId,
+      currencyCode: input.currencyCode,
+    });
   }
 
-  async postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
+  postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
     this.movementInput = input;
     const effect = input.direction === 'debit' ? input.amountMinor : -input.amountMinor;
-    return { transactionId: 'tx-1', accountId: input.accountId, balanceMinor: effect, currencyCode: input.currencyCode };
+    return Promise.resolve({
+      transactionId: 'tx-1',
+      accountId: input.accountId,
+      balanceMinor: effect,
+      currencyCode: input.currencyCode,
+    });
   }
 
-  async reverseTransaction(input: ReverseTransactionPortInput): Promise<PostedMovementRecord> {
+  reverseTransaction(input: ReverseTransactionPortInput): Promise<PostedMovementRecord> {
     this.reversalInput = input;
-    return { transactionId: 'reversal-1', accountId: 'account-1', balanceMinor: 0n, currencyCode: 'YER' };
+    return Promise.resolve({
+      transactionId: 'reversal-1',
+      accountId: 'account-1',
+      balanceMinor: 0n,
+      currencyCode: 'YER',
+    });
   }
 
-  async getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]> {
+  getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]> {
     this.statementInput = input;
-    return [];
+    return Promise.resolve([]);
   }
 }
 
