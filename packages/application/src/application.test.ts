@@ -24,14 +24,18 @@ import type {
   ListCustomerAccountsPortInput,
   ListMyCustomerAccountsPortInput,
   ListMyDisputesPortInput,
+  ListTransactionDocumentsPortInput,
   MyCustomerAccountRecord,
   MyDisputeRecord,
   OpenAccountPortInput,
   OpenDisputePortInput,
   PostMovementPortInput,
   PostedMovementRecord,
+  PreparedTransactionDocumentRecord,
+  PrepareTransactionDocumentPortInput,
   ReverseTransactionPortInput,
   StatementEntryRecord,
+  TransactionDocumentRecord,
   UpdateDisputePortInput,
 } from './ports.js';
 
@@ -43,6 +47,8 @@ class RecordingRepository implements ApplicationRepository {
   claimInviteInput?: ClaimCustomerInvitePortInput;
   openDisputeInput?: OpenDisputePortInput;
   updateDisputeInput?: UpdateDisputePortInput;
+  prepareDocumentInput?: PrepareTransactionDocumentPortInput;
+  listDocumentsInput?: ListTransactionDocumentsPortInput;
   movementInput?: PostMovementPortInput;
   reversalInput?: ReverseTransactionPortInput;
   listBusinessesInput?: ListBusinessesPortInput;
@@ -80,6 +86,14 @@ class RecordingRepository implements ApplicationRepository {
   updateDispute(input: UpdateDisputePortInput): Promise<DisputeRecord> {
     this.updateDisputeInput = input;
     return Promise.resolve({ disputeId: input.disputeId, transactionId: 'tx-1', businessId: 'business-1', status: input.status, reason: 'مبلغ غير صحيح', createdAt: '2026-08-22T10:00:00+00:00', ...(input.resolutionNote ? { resolutionNote: input.resolutionNote, resolvedAt: '2026-08-22T11:00:00+00:00' } : {}) });
+  }
+  prepareTransactionDocument(input: PrepareTransactionDocumentPortInput): Promise<PreparedTransactionDocumentRecord> {
+    this.prepareDocumentInput = input;
+    return Promise.resolve({ documentId: 'document-1', transactionId: input.transactionId, storageBucket: 'transaction-documents', storagePath: 'businesses/business-1/transactions/tx-1/document-1.pdf', fileName: input.fileName, mimeType: input.mimeType, sizeBytes: input.sizeBytes });
+  }
+  listTransactionDocuments(input: ListTransactionDocumentsPortInput): Promise<readonly TransactionDocumentRecord[]> {
+    this.listDocumentsInput = input;
+    return Promise.resolve([]);
   }
   postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
     this.movementInput = input;
@@ -137,6 +151,20 @@ describe('IbexApplication', () => {
     await application.updateDispute({ actorUserId: 'user-1' }, { disputeId: ' dispute-1 ', status: 'resolved', resolutionNote: '  تم   تصحيح المستند  ' });
     expect(repository.updateDisputeInput).toEqual({ actorUserId: 'user-1', disputeId: 'dispute-1', status: 'resolved', resolutionNote: 'تم تصحيح المستند' });
     await expect(application.updateDispute({ actorUserId: 'user-1' }, { disputeId: 'dispute-1', status: 'rejected' })).rejects.toThrow('Resolution note is required');
+  });
+
+  it('validates document metadata before preparing private storage', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+    await application.prepareTransactionDocument(
+      { actorUserId: ' user-1 ', requestId: 'doc-request-1' },
+      { transactionId: ' tx-1 ', fileName: '  فاتورة 1001.pdf\n', mimeType: 'APPLICATION/PDF', sizeBytes: 4096 },
+    );
+    expect(repository.prepareDocumentInput).toEqual({ actorUserId: 'user-1', transactionId: 'tx-1', fileName: 'فاتورة 1001.pdf', mimeType: 'application/pdf', sizeBytes: 4096, requestId: 'doc-request-1' });
+    await application.listTransactionDocuments({ actorUserId: ' user-2 ' }, { transactionId: ' tx-1 ' });
+    expect(repository.listDocumentsInput).toEqual({ actorUserId: 'user-2', transactionId: 'tx-1' });
+    await expect(application.prepareTransactionDocument({ actorUserId: 'user-1' }, { transactionId: 'tx-1', fileName: 'bad.exe', mimeType: 'application/octet-stream', sizeBytes: 20 })).rejects.toThrow('Unsupported document type');
+    await expect(application.prepareTransactionDocument({ actorUserId: 'user-1' }, { transactionId: 'tx-1', fileName: 'large.pdf', mimeType: 'application/pdf', sizeBytes: 10 * 1024 * 1024 + 1 })).rejects.toThrow('Document size');
   });
 
   it('maps a sale to a debit using lossless bigint money', async () => {
