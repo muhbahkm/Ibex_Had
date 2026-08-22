@@ -8,7 +8,7 @@ import {
 
 class RecordingRpcClient implements SupabaseRpcClient {
   functionName?: string;
-  args?: Record<string, unknown>;
+  args: Record<string, unknown> | undefined;
 
   constructor(private readonly response: RpcResponse) {}
 
@@ -98,7 +98,7 @@ describe('SupabaseApplicationRepository', () => {
         businessId: 'business-1',
         displayName: 'عميل',
       }),
-    ).rejects.toMatchObject<Partial<InfrastructureError>>({
+    ).rejects.toMatchObject({
       name: 'InfrastructureError',
       code: '42501',
     });
