@@ -30,7 +30,11 @@ export function ProductShell({
       <View style={styles.root}>
         <View style={styles.appBarFrame}>
           <View style={styles.contentFrame}>
-            <AppBar title={title} subtitle={subtitle} trailing={trailing} />
+            <AppBar
+              title={title}
+              {...(subtitle !== undefined ? { subtitle } : {})}
+              {...(trailing !== undefined ? { trailing } : {})}
+            />
           </View>
         </View>
 
