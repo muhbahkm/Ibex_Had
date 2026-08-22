@@ -7,9 +7,13 @@ import type {
   BusinessCustomerSummaryRecord,
   BusinessRecord,
   BusinessSummaryRecord,
+  ClaimedCustomerInviteRecord,
+  ClaimCustomerInvitePortInput,
   CreateBusinessPortInput,
+  CreateCustomerInvitePortInput,
   CreateCustomerPortInput,
   CustomerAccountSummaryRecord,
+  CustomerInviteRecord,
   CustomerRecord,
   GetStatementPortInput,
   ListBusinessCustomersPortInput,
@@ -28,6 +32,8 @@ class RecordingRepository implements ApplicationRepository {
   businessInput?: CreateBusinessPortInput;
   customerInput?: CreateCustomerPortInput;
   accountInput?: OpenAccountPortInput;
+  createInviteInput?: CreateCustomerInvitePortInput;
+  claimInviteInput?: ClaimCustomerInvitePortInput;
   movementInput?: PostMovementPortInput;
   reversalInput?: ReverseTransactionPortInput;
   listBusinessesInput?: ListBusinessesPortInput;
@@ -49,6 +55,28 @@ class RecordingRepository implements ApplicationRepository {
   openCustomerAccount(input: OpenAccountPortInput): Promise<AccountRecord> {
     this.accountInput = input;
     return Promise.resolve({ id: 'account-1', businessCustomerId: input.businessCustomerId, currencyCode: input.currencyCode });
+  }
+
+  createCustomerInvite(input: CreateCustomerInvitePortInput): Promise<CustomerInviteRecord> {
+    this.createInviteInput = input;
+    return Promise.resolve({
+      inviteId: 'invite-1',
+      token: 'a'.repeat(48),
+      expiresAt: '2026-08-29T10:00:00+00:00',
+      businessCustomerId: input.businessCustomerId,
+      customerIdentityId: 'customer-1',
+      displayName: 'محمد علي',
+    });
+  }
+
+  claimCustomerInvite(input: ClaimCustomerInvitePortInput): Promise<ClaimedCustomerInviteRecord> {
+    this.claimInviteInput = input;
+    return Promise.resolve({
+      businessId: 'business-1',
+      businessName: 'باحكم للعسل',
+      businessCustomerId: 'relationship-1',
+      customerIdentityId: 'customer-1',
+    });
   }
 
   postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
@@ -99,6 +127,47 @@ describe('IbexApplication', () => {
     expect(repository.customerInput?.phoneE164).toBe('+967777123456');
     expect(repository.customerInput?.displayName).toBe('محمد علي');
     expect(repository.accountInput?.currencyCode).toBe('SAR');
+  });
+
+  it('normalizes invite TTL and validates opaque invite tokens', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+    const token = 'A'.repeat(48);
+
+    await application.createCustomerInvite(
+      { actorUserId: ' user-1 ', requestId: 'request-invite' },
+      { businessCustomerId: ' relationship-1 ' },
+    );
+    await application.claimCustomerInvite(
+      { actorUserId: ' user-2 ' },
+      { token },
+    );
+
+    expect(repository.createInviteInput).toEqual({
+      actorUserId: 'user-1',
+      businessCustomerId: 'relationship-1',
+      ttlHours: 168,
+      requestId: 'request-invite',
+    });
+    expect(repository.claimInviteInput).toEqual({
+      actorUserId: 'user-2',
+      token: 'a'.repeat(48),
+    });
+    await expect(
+      application.claimCustomerInvite({ actorUserId: 'user-2' }, { token: 'not-a-token' }),
+    ).rejects.toThrow('Invitation token is invalid');
+  });
+
+  it('rejects invite TTL outside the bounded lifetime', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+    await expect(
+      application.createCustomerInvite(
+        { actorUserId: 'user-1' },
+        { businessCustomerId: 'relationship-1', ttlHours: 721 },
+      ),
+    ).rejects.toThrow('Invite TTL');
+    expect(repository.createInviteInput).toBeUndefined();
   });
 
   it('maps a sale to a debit using lossless bigint money', async () => {

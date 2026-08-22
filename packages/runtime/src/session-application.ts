@@ -63,6 +63,20 @@ export class IbexSessionApplication {
     return this.application.openCustomerAccount(await this.context(requestId), input);
   }
 
+  async createCustomerInvite(
+    input: Parameters<IbexApplication['createCustomerInvite']>[1],
+    requestId?: string,
+  ) {
+    return this.application.createCustomerInvite(await this.context(requestId), input);
+  }
+
+  async claimCustomerInvite(
+    input: Parameters<IbexApplication['claimCustomerInvite']>[1],
+    requestId?: string,
+  ) {
+    return this.application.claimCustomerInvite(await this.context(requestId), input);
+  }
+
   async postSale(input: Parameters<IbexApplication['postSale']>[1], requestId?: string) {
     return this.application.postSale(await this.context(requestId), input);
   }

@@ -1,24 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
+import type { RpcResponse } from '../../infrastructure/src/supabase-application-repository.js';
 import type { AuthGetUserResponse, SupabaseSessionClient } from './session-application.js';
 import {
   AuthenticationRequiredError,
   IbexSessionApplication,
 } from './session-application.js';
-import type { RpcResponse } from '../../infrastructure/src/supabase-application-repository.js';
 
 class RecordingSessionClient implements SupabaseSessionClient {
   readonly calls: Array<{ functionName: string; args?: Record<string, unknown> }> = [];
-
   readonly auth: SupabaseSessionClient['auth'];
 
   constructor(
     authResponse: AuthGetUserResponse,
     private readonly rpcResponse: RpcResponse,
   ) {
-    this.auth = {
-      getUser: () => Promise.resolve(authResponse),
-    };
+    this.auth = { getUser: () => Promise.resolve(authResponse) };
   }
 
   rpc(functionName: string, args?: Record<string, unknown>): Promise<RpcResponse> {
@@ -62,6 +59,65 @@ describe('IbexSessionApplication', () => {
     expect(result.balanceMinor).toBe(1000n);
   });
 
+  it('forwards invite creation through the authenticated session boundary', async () => {
+    const client = new RecordingSessionClient(
+      { data: { user: { id: 'merchant-user' } }, error: null },
+      {
+        data: {
+          inviteId: 'invite-1',
+          token: 'a'.repeat(48),
+          expiresAt: '2026-08-29T10:00:00+00:00',
+          businessCustomerId: 'relationship-1',
+          customerIdentityId: 'customer-1',
+          displayName: 'محمد علي',
+        },
+        error: null,
+      },
+    );
+    const application = new IbexSessionApplication(client);
+
+    const result = await application.createCustomerInvite(
+      { businessCustomerId: 'relationship-1', ttlHours: 72 },
+      'invite-request-1',
+    );
+
+    expect(client.calls[0]?.functionName).toBe('app_create_customer_invite');
+    expect(client.calls[0]?.args).toMatchObject({
+      p_actor_user_id: 'merchant-user',
+      p_business_customer_id: 'relationship-1',
+      p_ttl_hours: 72,
+      p_request_id: 'invite-request-1',
+    });
+    expect(result.token).toBe('a'.repeat(48));
+  });
+
+  it('forwards invite claim through the authenticated session boundary', async () => {
+    const token = 'b'.repeat(48);
+    const client = new RecordingSessionClient(
+      { data: { user: { id: 'customer-user' } }, error: null },
+      {
+        data: {
+          businessId: 'business-1',
+          businessName: 'باحكم للعسل',
+          businessCustomerId: 'relationship-1',
+          customerIdentityId: 'customer-1',
+        },
+        error: null,
+      },
+    );
+    const application = new IbexSessionApplication(client);
+
+    const result = await application.claimCustomerInvite({ token }, 'claim-request-1');
+
+    expect(client.calls[0]?.functionName).toBe('app_claim_customer_invite');
+    expect(client.calls[0]?.args).toMatchObject({
+      p_actor_user_id: 'customer-user',
+      p_token: token,
+      p_request_id: 'claim-request-1',
+    });
+    expect(result.businessName).toBe('باحكم للعسل');
+  });
+
   it('rejects execution when no authenticated user exists', async () => {
     const client = new RecordingSessionClient(
       { data: { user: null }, error: null },
@@ -69,10 +125,9 @@ describe('IbexSessionApplication', () => {
     );
     const application = new IbexSessionApplication(client);
 
-    await expect(
-      application.getStatement({ accountId: 'account-1' }),
-    ).rejects.toBeInstanceOf(AuthenticationRequiredError);
-
+    await expect(application.getStatement({ accountId: 'account-1' })).rejects.toBeInstanceOf(
+      AuthenticationRequiredError,
+    );
     expect(client.calls).toHaveLength(0);
   });
 
@@ -92,7 +147,6 @@ describe('IbexSessionApplication', () => {
       name: 'InfrastructureError',
       code: 'auth_session_missing',
     });
-
     expect(client.calls).toHaveLength(0);
   });
 });
