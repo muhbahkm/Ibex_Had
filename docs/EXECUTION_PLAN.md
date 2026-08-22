@@ -43,7 +43,7 @@ Completed:
 - Idempotency and posted-transaction immutability enforced.
 - Three repository migrations deployed to Supabase Mumbai in order: ledger core, API-grant hardening, FK covering indexes.
 - RLS enabled on all 15 public application tables.
-- End-user financial writes are not directly granted; future writes go through the Application/Domain command layer.
+- End-user financial writes are not directly granted; writes go through narrow Application/Domain commands.
 - `customer_account_balances` uses `security_invoker=true` and remains a derived view, not financial truth.
 - TypeScript ledger invariant tests pass in CI.
 - A temporary transactional database verification proved deterministic balances, immutable entries/posted transactions, and exact reversal behavior; all verification data was rolled back.
@@ -83,15 +83,32 @@ Detailed flow and security contract: `docs/IDENTITY_ONBOARDING.md`.
 Exit criteria remain open until a real Yemeni phone completes OTP login and the mobile session can be restored securely.
 
 ## Phase 3 — Application and domain core
-Status: NEXT PROVIDER-INDEPENDENT DELIVERY.
+Status: APPLICATION CORE + ATOMIC SUPABASE ADAPTER DEPLOYED AND PRODUCTION-VERIFIED; FIRST REAL CLIENT BINDING NEXT.
 
-- Modular Monolith boundaries: Auth, Businesses, Customers, Accounts, Ledger, Documents, Disputes, Notifications, Integrations.
-- Shared use cases such as CreateCustomer, CreateDraftTransaction, PostReceipt, PostSale, ReverseTransaction, GetStatement.
-- No client can create ledger entries directly.
-- Audit events for important mutations.
-- API contracts reusable by Mobile, Web, and future ChatGPT tooling.
+Completed:
+- `IbexApplication` is provider/framework independent and shared by future Mobile, Web, ChatGPT, and integrations.
+- Money crosses JavaScript boundaries losslessly: decimal integer strings at external boundaries and `bigint` internally; JavaScript `number` is prohibited for money.
+- Core use cases implemented: CreateBusiness, CreateCustomer, OpenCustomerAccount, PostSale, PostReceipt, ReverseTransaction, and GetStatement.
+- `ApplicationRepository` ports isolate business/application logic from Supabase and UI frameworks.
+- `SupabaseApplicationRepository` maps those ports to narrow RPC commands and preserves PostgreSQL `bigint` values losslessly.
+- Migration `add_atomic_application_commands` is deployed to Supabase Mumbai.
+- Narrow RPC commands exist for business/customer/account creation, movement posting, reversal, and statement reconstruction.
+- Posting is atomic: actor/role/scope/currency/idempotency validation -> draft transaction -> entry -> posted transaction -> audit event -> deterministic balance rebuild. Any failure rolls the statement back.
+- Reversal is restricted to owner/manager, locks the original, posts exact opposite entries, then marks the original reversed.
+- Idempotency is production-verified: exact retries return the same transaction; reusing a key with a conflicting financial payload is rejected; repeated reversal returns the existing reversal.
+- Production verification inside a transaction proved sale 1000 -> balance 1000, receipt 400 -> balance 600, deterministic statement, reversal of sale -> balance -400; all verification data was rolled back.
+- Authorization surface verified: authenticated users can execute the narrow posting/reversal RPCs; anon cannot; authenticated still cannot directly insert into `ledger_transactions`, `ledger_entries`, or `audit_events`.
+- PR #8 (Application Core) and PR #9 (atomic adapter/RPCs) passed lint, typecheck, and tests and were squash-merged.
+- Supabase Security Advisor has no findings. Performance Advisor only reports expected INFO-level unused indexes before real workload exists.
 
-Exit criteria: key use cases pass integration tests without any UI dependency.
+Detailed command contract: `docs/ATOMIC_APPLICATION_COMMANDS.md`.
+
+Remaining before Phase 3 closes:
+- Bind a real Supabase client/session to `SupabaseApplicationRepository` through a single composition root.
+- Add an authenticated integration harness that exercises the Application layer through the client boundary.
+- Add only the additional MVP use cases required by the first UI; do not duplicate financial logic in clients.
+
+Exit criterion is materially met for provider-independent and database layers; Phase 3 closes after the same `IbexApplication` runs through the first real client binding without UI-specific financial logic.
 
 ## Phase 4 — Mobile v1
 - React Native + Expo + TypeScript.
@@ -156,4 +173,4 @@ A feature/change is complete only when applicable items are satisfied:
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Proceed with Phase 3 provider-independent Application/Domain Core while the external SMS-provider choice is handled separately. Live OTP closure returns as soon as provider credentials and real Yemen delivery are available.
+Create the real Supabase client composition root and authenticated integration boundary so the first Mobile/Web client can instantiate the same `IbexApplication` without owning any financial logic. Live OTP closure remains a parallel external-provider task.
