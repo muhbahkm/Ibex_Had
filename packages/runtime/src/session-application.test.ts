@@ -149,6 +149,31 @@ describe('IbexSessionApplication', () => {
     });
   });
 
+  it('derives the current user for notification list and read mutations', async () => {
+    const listClient = new RecordingSessionClient(
+      { data: { user: { id: 'customer-user' } }, error: null },
+      { data: [], error: null },
+    );
+    const listApplication = new IbexSessionApplication(listClient);
+    await listApplication.listNotifications({ unreadOnly: true, limit: 25 });
+    expect(listClient.calls[0]?.functionName).toBe('app_list_notifications');
+    expect(listClient.calls[0]?.args).toMatchObject({
+      p_actor_user_id: 'customer-user',
+      p_unread_only: true,
+      p_limit: 25,
+    });
+
+    const markClient = new RecordingSessionClient(
+      { data: { user: { id: 'customer-user' } }, error: null },
+      { data: { notificationId: 'notification-1', readAt: '2026-08-22T13:00:00+00:00' }, error: null },
+    );
+    const markApplication = new IbexSessionApplication(markClient);
+    const marked = await markApplication.markNotificationRead({ notificationId: 'notification-1' });
+    expect(markClient.calls[0]?.functionName).toBe('app_mark_notification_read');
+    expect(markClient.calls[0]?.args?.p_actor_user_id).toBe('customer-user');
+    expect(marked.notificationId).toBe('notification-1');
+  });
+
   it('rejects execution when no authenticated user exists', async () => {
     const client = new RecordingSessionClient(
       { data: { user: null }, error: null },

@@ -23,6 +23,7 @@ export default function HomeScreen() {
   const { session, isPreviewMode } = auth;
   const [businesses, setBusinesses] = useState<readonly BusinessSummaryRecord[]>([]);
   const [myAccounts, setMyAccounts] = useState<readonly MyCustomerAccountRecord[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [loading, setLoading] = useState(!isPreviewMode);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +32,7 @@ export default function HomeScreen() {
       if (isPreviewMode) {
         setBusinesses([]);
         setMyAccounts([]);
+        setUnreadNotifications(0);
         setError(null);
         setLoading(false);
         return undefined;
@@ -39,11 +41,16 @@ export default function HomeScreen() {
       let active = true;
       setLoading(true);
       setError(null);
-      void Promise.all([ibex.listBusinesses(), ibex.listMyCustomerAccounts()])
-        .then(([businessRows, accountRows]) => {
+      void Promise.all([
+        ibex.listBusinesses(),
+        ibex.listMyCustomerAccounts(),
+        ibex.listNotifications({ unreadOnly: true, limit: 100 }),
+      ])
+        .then(([businessRows, accountRows, notificationRows]) => {
           if (!active) return;
           setBusinesses(businessRows);
           setMyAccounts(accountRows);
+          setUnreadNotifications(notificationRows.length);
         })
         .catch((loadError: unknown) => {
           if (active) setError(errorMessage(loadError));
@@ -74,6 +81,23 @@ export default function HomeScreen() {
         </View>
 
         <Heading title="IBEX HAD" subtitle="حساباتك كعميل ومساحات العمل التي تديرها، في مكان واحد." />
+
+        {!isPreviewMode ? (
+          <Pressable
+            onPress={() => router.push('/notifications')}
+            style={({ pressed }) => [styles.notificationCard, pressed ? styles.cardPressed : null]}
+          >
+            <View style={styles.notificationTextWrap}>
+              <Text style={styles.notificationTitle}>الإشعارات</Text>
+              <Text style={styles.notificationSubtitle}>الحركات وطلبات المراجعة المهمة.</Text>
+            </View>
+            <View style={[styles.notificationBadge, unreadNotifications === 0 ? styles.notificationBadgeMuted : null]}>
+              <Text style={[styles.notificationBadgeText, unreadNotifications === 0 ? styles.notificationBadgeTextMuted : null]}>
+                {unreadNotifications > 99 ? '99+' : String(unreadNotifications)}
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         {isPreviewMode ? (
           <View style={styles.previewCard}>
@@ -176,6 +200,14 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', justifyContent: 'space-between' },
   signOutButton: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
   signOutText: { color: theme.colors.textMuted, fontSize: theme.typography.caption, fontWeight: '600', writingDirection: 'rtl' },
+  notificationCard: { minHeight: 76, padding: theme.spacing.lg, marginBottom: theme.spacing.xl, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
+  notificationTextWrap: { flex: 1 },
+  notificationTitle: { color: theme.colors.text, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
+  notificationSubtitle: { color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },
+  notificationBadge: { minWidth: 34, height: 34, paddingHorizontal: theme.spacing.sm, borderRadius: theme.radius.pill, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
+  notificationBadgeMuted: { backgroundColor: theme.colors.surfaceMuted },
+  notificationBadgeText: { color: theme.colors.primaryText, fontWeight: '800', writingDirection: 'ltr' },
+  notificationBadgeTextMuted: { color: theme.colors.textMuted },
   previewCard: { padding: theme.spacing.lg, backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.spacing.xl },
   previewTitle: { color: theme.colors.text, fontSize: theme.typography.body, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
   previewBody: { color: theme.colors.textMuted, fontSize: theme.typography.caption, lineHeight: 21, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },

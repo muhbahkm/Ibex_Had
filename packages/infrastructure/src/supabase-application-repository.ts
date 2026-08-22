@@ -22,9 +22,14 @@ import type {
   ListCustomerAccountsPortInput,
   ListMyCustomerAccountsPortInput,
   ListMyDisputesPortInput,
+  ListNotificationsPortInput,
   ListTransactionDocumentsPortInput,
+  MarkedNotificationRecord,
+  MarkNotificationReadPortInput,
   MyCustomerAccountRecord,
   MyDisputeRecord,
+  NotificationKind,
+  NotificationRecord,
   OpenAccountPortInput,
   OpenDisputePortInput,
   PostMovementPortInput,
@@ -68,6 +73,11 @@ function parseDisputeStatus(value: unknown, field: string, operation: string): D
   const status = expectString(value, field, operation);
   if (!['open','under_review','resolved','rejected','withdrawn'].includes(status)) throw new InfrastructureError(operation, { message: `RPC payload field ${field} is invalid` });
   return status as DisputeStatus;
+}
+function parseNotificationKind(value: unknown, field: string, operation: string): NotificationKind {
+  const kind = expectString(value, field, operation);
+  if (!['transaction_posted','dispute_opened','dispute_closed'].includes(kind)) throw new InfrastructureError(operation, { message: `RPC payload field ${field} is invalid` });
+  return kind as NotificationKind;
 }
 function optionalString(value: unknown): string | undefined { return typeof value === 'string' && value.length > 0 ? value : undefined; }
 
@@ -138,6 +148,31 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
         createdAt: expectString(row.created_at, `rows[${index}].created_at`, operation),
       } satisfies TransactionDocumentRecord;
     });
+  }
+  async listNotifications(input: ListNotificationsPortInput): Promise<readonly NotificationRecord[]> {
+    const operation = 'app_list_notifications';
+    const payload = expectArray(await this.call(operation, { p_actor_user_id: input.actorUserId, p_unread_only: input.unreadOnly, p_limit: input.limit }), operation);
+    return payload.map((value, index) => {
+      const row = expectObject(value, operation);
+      const disputeStatus = row.dispute_status === null || row.dispute_status === undefined ? undefined : parseDisputeStatus(row.dispute_status, `rows[${index}].dispute_status`, operation);
+      return {
+        notificationId: expectString(row.notification_id, `rows[${index}].notification_id`, operation),
+        kind: parseNotificationKind(row.kind, `rows[${index}].kind`, operation),
+        businessId: expectString(row.business_id, `rows[${index}].business_id`, operation),
+        businessName: expectString(row.business_name, `rows[${index}].business_name`, operation),
+        transactionId: expectString(row.transaction_id, `rows[${index}].transaction_id`, operation),
+        transactionType: expectString(row.transaction_type, `rows[${index}].transaction_type`, operation) as LedgerTransactionType,
+        ...(typeof row.dispute_id === 'string' ? { disputeId: row.dispute_id } : {}),
+        ...(disputeStatus ? { disputeStatus } : {}),
+        ...(typeof row.read_at === 'string' ? { readAt: row.read_at } : {}),
+        createdAt: expectString(row.created_at, `rows[${index}].created_at`, operation),
+      } satisfies NotificationRecord;
+    });
+  }
+  async markNotificationRead(input: MarkNotificationReadPortInput): Promise<MarkedNotificationRecord> {
+    const operation = 'app_mark_notification_read';
+    const row = expectObject(await this.call(operation, { p_actor_user_id: input.actorUserId, p_notification_id: input.notificationId }), operation);
+    return { notificationId: expectString(row.notificationId, 'notificationId', operation), readAt: expectString(row.readAt, 'readAt', operation) };
   }
   async postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
     const operation = 'app_post_movement';

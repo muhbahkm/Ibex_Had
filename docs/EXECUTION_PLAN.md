@@ -67,8 +67,8 @@ Completed:
 - `ApplicationRepository` ports isolate use cases from Supabase and UI frameworks.
 - `SupabaseApplicationRepository` maps narrow RPCs and validates returned payloads.
 - `IbexSessionApplication` derives actor identity from the authenticated Supabase session; callers cannot supply their own actor id.
-- Atomic commands cover business/customer/account creation, posting sale/receipt, reversal, statement, read models, customer invitations, disputes, and transaction documents.
-- Production verification proved idempotency, exact reversal, deterministic statements, merchant/customer isolation, invitation claim constraints, dispute behavior, and document preparation constraints.
+- Atomic commands cover business/customer/account creation, posting sale/receipt, reversal, statement, read models, customer invitations, disputes, transaction documents, and the durable notification inbox.
+- Production verification proved idempotency, exact reversal, deterministic statements, merchant/customer isolation, invitation claim constraints, dispute behavior, document preparation constraints, notification ownership, and idempotent read marking.
 
 Detailed command contract: `docs/ATOMIC_APPLICATION_COMMANDS.md` and `docs/CLIENT_RUNTIME.md`.
 
@@ -83,7 +83,8 @@ Completed:
 - Customer flow: `حساباتي` → account statement → balance → request review/dispute.
 - Secure customer invitations and deep-link claim flow.
 - Dispute/review screens for customer and merchant.
-- Transaction-document screen and private attachment flow are being completed in PR #21.
+- Transaction Documents v1 is merged through PR #21 with private attachment UX.
+- Notification Inbox v1 adds an inbox screen and unread badge while remaining independent from Push providers.
 - Expo dependency check, Expo Doctor, and Android bundle smoke test are enforced in CI.
 - SDK 57 SafeArea compatibility cleanup merged in PR #20.
 
@@ -104,21 +105,26 @@ Planned:
 Exit criteria: merchant daily workflows on web produce identical financial outcomes to mobile.
 
 ## Phase 6 — Documents, disputes, notifications
-Status: IN PROGRESS.
+Status: BACKEND/CLIENT CORE COMPLETE; PHYSICAL-DEVICE DELIVERY VALIDATION REMAINS.
 
-Completed/in implementation:
+Completed:
 - Dispute/review workflow is implemented and production-verified without mutating ledger history.
 - Transaction Documents v1 uses a private Supabase Storage bucket with a Prepare → Upload → Visible contract.
 - Server generates the canonical storage path; client cannot choose another business/transaction scope.
 - Upload is restricted to active owner/manager/cashier; customer reads are restricted to already-accessible transactions.
 - No public file URLs; mobile opens documents through short-lived signed URLs.
 - PDF/JPEG/PNG/WEBP only, maximum 10 MiB.
+- Durable Notification Inbox v1 is implemented independently from Expo Push/FCM/APNs/SMS.
+- Notifications are generated only for high-value events: posted financial movement to a claimed customer, dispute opened to owner/managers, dispute resolved/rejected to the customer.
+- RLS/read-mark ownership was production-verified; anon cannot execute inbox RPCs and authenticated clients cannot directly mutate notification rows.
+- Security Advisor is clean after the notification migration; Performance Advisor remains INFO-only unused-index notices.
 
 Remaining:
-- Complete physical-device authenticated upload/download verification.
-- Add useful, non-noisy notification delivery after the core device flow is stable.
+- Complete physical-device authenticated document upload/download verification.
+- Complete live authenticated notification UX verification on device.
+- Add Push delivery only as a future channel over the durable inbox/outbox boundary; Push must never become the notification source of truth.
 
-Detailed document contract: `docs/TRANSACTION_DOCUMENTS.md`.
+Detailed contracts: `docs/TRANSACTION_DOCUMENTS.md` and `docs/NOTIFICATION_INBOX.md`.
 
 ## Phase 7 — Security, quality, production readiness
 Status: PARTIALLY ACTIVE THROUGHOUT DEVELOPMENT.
@@ -165,4 +171,4 @@ A feature/change is complete only when applicable items are satisfied:
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Close Transaction Documents v1 through production verification and merge PR #21, then continue physical-device Mobile v1 validation with an SDK 57-compatible test host/Development Build. In parallel, keep live +967 OTP as a production-auth task rather than weakening the financial authorization boundary.
+Merge Notification Inbox v1 after its final green CI checkpoint, then return to physical-device Mobile v1 validation using an SDK 57-compatible Development Build. The two external release blockers remain live +967 OTP delivery and real-device document/notification verification; neither should weaken the existing authorization model.
