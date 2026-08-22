@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../../../src/features/auth/auth-context';
 import { getBusinessCollectionOverview } from '../../../src/lib/collection-overview';
 import { formatMinorUnits } from '../../../src/lib/money-display';
-import { EmptyState, ErrorState, InlineFeedback, LoadingState, Surface } from '../../../src/ui/primitives';
+import { Button, EmptyState, ErrorState, InlineFeedback, LoadingState, Surface } from '../../../src/ui/primitives';
 import { MetricStrip, SectionHeading, StatusBadge } from '../../../src/ui/operational-primitives';
 import { SecondaryShell } from '../../../src/ui/secondary-shell';
 import { theme } from '../../../src/ui/theme';
@@ -53,10 +53,12 @@ export default function CollectionsScreen() {
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>Read Model تشغيلي</Text>
           <Text style={styles.title}>الذمم والمتابعة، مفصولة حسب العملة.</Text>
-          <Text style={styles.body}>الحالة «راكدة» تعني وجود رصيد موجب وعدم ظهور حركة خلال 30 يومًا؛ لا تعني أن الدين متأخر نظاميًا ما لم يوجد تاريخ استحقاق صريح.</Text>
+          <Text style={styles.body}>الحالة «راكدة» تعني وجود رصيد موجب وعدم ظهور حركة خلال 30 يومًا؛ أما «التأخر» الحقيقي فأصبح يعتمد على شروط ائتمان وتاريخ استحقاق محفوظين لحظة البيع.</Text>
         </View>
 
-        {isPreviewMode ? <InlineFeedback tone="info">بيانات المعاينة محلية. منطق المتابعة نفسه مشترك مع مسار الإنتاج.</InlineFeedback> : null}
+        <Button onPress={() => router.push({ pathname: '/business/[businessId]/follow-up', params: { businessId, businessName } })}>فتح قائمة متابعة اليوم</Button>
+
+        {isPreviewMode ? <InlineFeedback tone="info">بيانات المعاينة محلية. تواريخ الاستحقاق الحقيقية لا تُنشأ إلا من جلسة إنتاج وصلاحيات صحيحة.</InlineFeedback> : null}
         {error ? <ErrorState message={error} onRetry={() => setRefreshNonce((value) => value + 1)} retryLabel="إعادة التحميل" /> : null}
         {loading ? <LoadingState label="جارٍ بناء صورة التحصيل" /> : null}
 
