@@ -48,3 +48,6 @@ jobs:
 
       - name: Expo dependency check
         run: pnpm --dir apps/mobile exec expo install --check
+
+      - name: Expo Doctor
+        run: cd apps/mobile && npx --yes expo-doctor@latest

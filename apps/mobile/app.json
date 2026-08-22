@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "ibexhad",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.ibexhad.mobile"
@@ -15,8 +14,7 @@
       "package": "com.ibexhad.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#F7F7F5"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "plugins": [
       "expo-router",
