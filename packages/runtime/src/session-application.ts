@@ -48,17 +48,11 @@ export class IbexSessionApplication {
     return userId;
   }
 
-  async createBusiness(
-    input: Parameters<IbexApplication['createBusiness']>[1],
-    requestId?: string,
-  ) {
+  async createBusiness(input: Parameters<IbexApplication['createBusiness']>[1], requestId?: string) {
     return this.application.createBusiness(await this.context(requestId), input);
   }
 
-  async createCustomer(
-    input: Parameters<IbexApplication['createCustomer']>[1],
-    requestId?: string,
-  ) {
+  async createCustomer(input: Parameters<IbexApplication['createCustomer']>[1], requestId?: string) {
     return this.application.createCustomer(await this.context(requestId), input);
   }
 
@@ -102,10 +96,11 @@ export class IbexSessionApplication {
     return this.application.listCustomerAccounts(await this.context(requestId), input);
   }
 
-  async getStatement(
-    input: Parameters<IbexApplication['getStatement']>[1],
-    requestId?: string,
-  ) {
+  async listMyCustomerAccounts(requestId?: string) {
+    return this.application.listMyCustomerAccounts(await this.context(requestId));
+  }
+
+  async getStatement(input: Parameters<IbexApplication['getStatement']>[1], requestId?: string) {
     return this.application.getStatement(await this.context(requestId), input);
   }
 
