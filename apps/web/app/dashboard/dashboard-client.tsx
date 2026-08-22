@@ -80,13 +80,13 @@ export function DashboardClient() {
             <p className="section-subtitle">الأنشطة التي تملكها أو لديك عضوية فعالة فيها.</p>
             <div className="list">
               {businesses.map((business) => (
-                <div className="row-card" key={business.businessId}>
+                <a className="row-card interactive-row" key={business.businessId} href={`/dashboard/business/${business.businessId}`}>
                   <div className="row-main">
                     <p className="row-title">{business.name}</p>
                     <p className="row-meta">{business.defaultCurrencyCode ?? 'بدون عملة افتراضية'} · {business.role}</p>
                   </div>
-                  <span className="badge">فتح قريبًا</span>
-                </div>
+                  <span className="badge">فتح النشاط</span>
+                </a>
               ))}
               {businesses.length === 0 ? <div className="row-card muted">لا يوجد نشاط تجاري مرتبط بهذه الهوية بعد.</div> : null}
             </div>
