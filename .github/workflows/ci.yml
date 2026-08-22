@@ -45,3 +45,6 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Expo dependency check
+        run: pnpm --dir apps/mobile exec expo install --check

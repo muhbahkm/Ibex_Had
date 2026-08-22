@@ -12,6 +12,7 @@ export default tseslint.config(
       '.expo/**',
       'coverage/**',
       'eslint.config.mjs',
+      'apps/mobile/metro.config.js',
     ],
   },
   js.configs.recommended,
