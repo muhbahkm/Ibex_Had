@@ -1,4 +1,4 @@
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -24,6 +24,10 @@ import {
 } from '../src/ui/primitives';
 import { theme } from '../src/ui/theme';
 
+function param(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   return 'تعذر التحقق من الرمز. تأكد منه وحاول مرة أخرى.';
@@ -31,6 +35,8 @@ function errorMessage(error: unknown): string {
 
 export default function VerifyScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ inviteToken?: string }>();
+  const inviteToken = param(params.inviteToken).toLowerCase();
   const { pendingOnboarding, session } = useAuth();
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +51,9 @@ export default function VerifyScreen() {
   }, [seconds]);
 
   if (!pendingOnboarding) {
+    if (session && inviteToken && /^[0-9a-f]{48}$/.test(inviteToken)) {
+      return <Redirect href={{ pathname: '/invite/[token]', params: { token: inviteToken } }} />;
+    }
     return <Redirect href={session ? '/home' : '/sign-in'} />;
   }
 
@@ -53,7 +62,13 @@ export default function VerifyScreen() {
     setError(null);
     setLoading(true);
     void verifyPhoneOtpAndCompleteProfile(pendingOnboarding, token)
-      .then(() => router.replace('/home'))
+      .then(() => {
+        if (inviteToken && /^[0-9a-f]{48}$/.test(inviteToken)) {
+          router.replace({ pathname: '/invite/[token]', params: { token: inviteToken } });
+        } else {
+          router.replace('/home');
+        }
+      })
       .catch((verifyError: unknown) => setError(errorMessage(verifyError)))
       .finally(() => setLoading(false));
   };
@@ -129,17 +144,7 @@ const styles = StyleSheet.create({
     writingDirection: 'ltr',
     marginBottom: theme.spacing.sm,
   },
-  resendRow: {
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
-  },
-  resend: {
-    color: theme.colors.primary,
-    fontSize: theme.typography.caption,
-    fontWeight: '700',
-    writingDirection: 'rtl',
-  },
-  resendDisabled: {
-    color: theme.colors.textMuted,
-  },
+  resendRow: { alignItems: 'center', marginTop: theme.spacing.lg },
+  resend: { color: theme.colors.primary, fontSize: theme.typography.caption, fontWeight: '700', writingDirection: 'rtl' },
+  resendDisabled: { color: theme.colors.textMuted },
 });
