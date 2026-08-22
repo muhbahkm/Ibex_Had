@@ -17,11 +17,13 @@ jobs:
   quality:
     name: Lint, typecheck, test
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     env:
-      # Supabase publishable client configuration. Authorization remains enforced by RLS/RPC.
+      # Publishable client configuration only. Authorization remains enforced by Auth/RLS/RPC.
       EXPO_PUBLIC_SUPABASE_URL: https://asvckwhrzoqupkihqhoj.supabase.co
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_r_4_ggotEHwWFZ6jPWSXRQ_7KYdIEMm
+      NEXT_PUBLIC_SUPABASE_URL: https://asvckwhrzoqupkihqhoj.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_r_4_ggotEHwWFZ6jPWSXRQ_7KYdIEMm
 
     steps:
       - name: Checkout
@@ -49,6 +51,9 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Merchant web production build
+        run: pnpm --dir apps/web build
 
       - name: Expo dependency check
         run: pnpm --dir apps/mobile exec expo install --check
