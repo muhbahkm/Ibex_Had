@@ -32,6 +32,61 @@ describe('SupabaseApplicationRepository', () => {
     expect(result.balanceMinor).toBe(900719925474099312345n);
   });
 
+  it('maps invite creation without losing the one-time token', async () => {
+    const token = 'c'.repeat(48);
+    const client = new RecordingRpcClient({
+      data: {
+        inviteId: 'invite-1',
+        token,
+        expiresAt: '2026-08-29T10:00:00+00:00',
+        businessCustomerId: 'relationship-1',
+        customerIdentityId: 'customer-1',
+        displayName: 'محمد علي',
+      },
+      error: null,
+    });
+    const repository = new SupabaseApplicationRepository(client);
+    const invite = await repository.createCustomerInvite({
+      actorUserId: 'merchant-1',
+      businessCustomerId: 'relationship-1',
+      ttlHours: 168,
+      requestId: 'request-1',
+    });
+    expect(client.functionName).toBe('app_create_customer_invite');
+    expect(client.args).toMatchObject({
+      p_actor_user_id: 'merchant-1',
+      p_business_customer_id: 'relationship-1',
+      p_ttl_hours: 168,
+      p_request_id: 'request-1',
+    });
+    expect(invite.token).toBe(token);
+  });
+
+  it('maps an invite claim to the resulting customer relationship', async () => {
+    const client = new RecordingRpcClient({
+      data: {
+        businessId: 'business-1',
+        businessName: 'باحكم للعسل',
+        businessCustomerId: 'relationship-1',
+        customerIdentityId: 'customer-1',
+      },
+      error: null,
+    });
+    const repository = new SupabaseApplicationRepository(client);
+    const result = await repository.claimCustomerInvite({
+      actorUserId: 'customer-user',
+      token: 'd'.repeat(48),
+    });
+    expect(client.functionName).toBe('app_claim_customer_invite');
+    expect(client.args?.p_token).toBe('d'.repeat(48));
+    expect(result).toEqual({
+      businessId: 'business-1',
+      businessName: 'باحكم للعسل',
+      businessCustomerId: 'relationship-1',
+      customerIdentityId: 'customer-1',
+    });
+  });
+
   it('maps statement v2 rows including server-computed reversal eligibility', async () => {
     const client = new RecordingRpcClient({
       data: [{ transaction_id: 'tx-2', transaction_type: 'receipt', transaction_status: 'posted', occurred_at: '2026-08-22T10:00:00+00:00', description: 'قبض', effect_minor: '-400', balance_after_minor: '600', currency_code: 'YER', can_reverse: true }],
