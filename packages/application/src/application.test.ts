@@ -4,11 +4,17 @@ import { IbexApplication } from './application.js';
 import type {
   AccountRecord,
   ApplicationRepository,
+  BusinessCustomerSummaryRecord,
   BusinessRecord,
+  BusinessSummaryRecord,
   CreateBusinessPortInput,
   CreateCustomerPortInput,
+  CustomerAccountSummaryRecord,
   CustomerRecord,
   GetStatementPortInput,
+  ListBusinessCustomersPortInput,
+  ListBusinessesPortInput,
+  ListCustomerAccountsPortInput,
   OpenAccountPortInput,
   PostMovementPortInput,
   PostedMovementRecord,
@@ -22,6 +28,9 @@ class RecordingRepository implements ApplicationRepository {
   accountInput?: OpenAccountPortInput;
   movementInput?: PostMovementPortInput;
   reversalInput?: ReverseTransactionPortInput;
+  listBusinessesInput?: ListBusinessesPortInput;
+  listCustomersInput?: ListBusinessCustomersPortInput;
+  listAccountsInput?: ListCustomerAccountsPortInput;
   statementInput?: GetStatementPortInput;
 
   createBusiness(input: CreateBusinessPortInput): Promise<BusinessRecord> {
@@ -70,6 +79,25 @@ class RecordingRepository implements ApplicationRepository {
       balanceMinor: 0n,
       currencyCode: 'YER',
     });
+  }
+
+  listBusinesses(input: ListBusinessesPortInput): Promise<readonly BusinessSummaryRecord[]> {
+    this.listBusinessesInput = input;
+    return Promise.resolve([]);
+  }
+
+  listBusinessCustomers(
+    input: ListBusinessCustomersPortInput,
+  ): Promise<readonly BusinessCustomerSummaryRecord[]> {
+    this.listCustomersInput = input;
+    return Promise.resolve([]);
+  }
+
+  listCustomerAccounts(
+    input: ListCustomerAccountsPortInput,
+  ): Promise<readonly CustomerAccountSummaryRecord[]> {
+    this.listAccountsInput = input;
+    return Promise.resolve([]);
   }
 
   getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]> {
@@ -201,6 +229,33 @@ describe('IbexApplication', () => {
       idempotencyKey: 'reversal-command-0001',
       reason: 'تصحيح',
       requestId: 'request-9',
+    });
+  });
+
+  it('normalizes operational read queries before infrastructure', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+
+    await application.listBusinesses({ actorUserId: ' user-1 ' });
+    await application.listBusinessCustomers(
+      { actorUserId: 'user-1' },
+      { businessId: ' business-1 ', search: '  محمد  ' },
+    );
+    await application.listCustomerAccounts(
+      { actorUserId: 'user-1' },
+      { businessCustomerId: ' relationship-1 ' },
+    );
+
+    expect(repository.listBusinessesInput).toEqual({ actorUserId: 'user-1' });
+    expect(repository.listCustomersInput).toEqual({
+      actorUserId: 'user-1',
+      businessId: 'business-1',
+      limit: 100,
+      search: 'محمد',
+    });
+    expect(repository.listAccountsInput).toEqual({
+      actorUserId: 'user-1',
+      businessCustomerId: 'relationship-1',
     });
   });
 

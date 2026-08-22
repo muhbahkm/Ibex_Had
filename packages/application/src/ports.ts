@@ -11,16 +11,40 @@ export interface BusinessRecord {
   readonly defaultCurrencyCode?: string;
 }
 
+export interface BusinessSummaryRecord {
+  readonly businessId: string;
+  readonly name: string;
+  readonly role: string;
+  readonly defaultCurrencyCode?: string;
+}
+
 export interface CustomerRecord {
   readonly customerIdentityId: string;
   readonly businessCustomerId: string;
   readonly displayName: string;
 }
 
+export interface BusinessCustomerSummaryRecord {
+  readonly businessCustomerId: string;
+  readonly customerIdentityId: string;
+  readonly displayName: string;
+  readonly accountCount: number;
+  readonly createdAt: string;
+  readonly phoneE164?: string;
+}
+
 export interface AccountRecord {
   readonly id: string;
   readonly businessCustomerId: string;
   readonly currencyCode: string;
+}
+
+export interface CustomerAccountSummaryRecord {
+  readonly accountId: string;
+  readonly businessCustomerId: string;
+  readonly currencyCode: string;
+  readonly status: string;
+  readonly balanceMinor: bigint;
 }
 
 export interface PostedMovementRecord {
@@ -87,6 +111,22 @@ export interface ReverseTransactionPortInput {
   readonly requestId?: string;
 }
 
+export interface ListBusinessesPortInput {
+  readonly actorUserId: string;
+}
+
+export interface ListBusinessCustomersPortInput {
+  readonly actorUserId: string;
+  readonly businessId: string;
+  readonly limit: number;
+  readonly search?: string;
+}
+
+export interface ListCustomerAccountsPortInput {
+  readonly actorUserId: string;
+  readonly businessCustomerId: string;
+}
+
 export interface GetStatementPortInput {
   readonly actorUserId: string;
   readonly accountId: string;
@@ -100,5 +140,12 @@ export interface ApplicationRepository {
   openCustomerAccount(input: OpenAccountPortInput): Promise<AccountRecord>;
   postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord>;
   reverseTransaction(input: ReverseTransactionPortInput): Promise<PostedMovementRecord>;
+  listBusinesses(input: ListBusinessesPortInput): Promise<readonly BusinessSummaryRecord[]>;
+  listBusinessCustomers(
+    input: ListBusinessCustomersPortInput,
+  ): Promise<readonly BusinessCustomerSummaryRecord[]>;
+  listCustomerAccounts(
+    input: ListCustomerAccountsPortInput,
+  ): Promise<readonly CustomerAccountSummaryRecord[]>;
   getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]>;
 }
