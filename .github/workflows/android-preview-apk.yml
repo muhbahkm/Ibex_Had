@@ -1,0 +1,78 @@
+name: Android Preview APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/android-preview-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-preview-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-preview-apk:
+    name: Build standalone preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      EXPO_PUBLIC_AUTH_MODE: preview
+      EXPO_PUBLIC_SUPABASE_URL: https://asvckwhrzoqupkihqhoj.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_r_4_ggotEHwWFZ6jPWSXRQ_7KYdIEMm
+      NODE_ENV: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Android project
+        run: pnpm --dir apps/mobile exec expo prebuild --platform android --clean --no-install
+
+      - name: Build standalone release APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p .artifacts/android-preview
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk .artifacts/android-preview/IBEX-HAD-preview.apk
+          sha256sum .artifacts/android-preview/IBEX-HAD-preview.apk > .artifacts/android-preview/IBEX-HAD-preview.sha256
+
+      - name: Upload preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IBEX-HAD-preview-apk
+          path: .artifacts/android-preview/*
+          retention-days: 14
+          if-no-files-found: error
