@@ -34,4 +34,13 @@ export default tseslint.config(
       '@typescript-eslint/no-misused-promises': 'error',
     },
   },
+  {
+    files: ['apps/mobile/src/lib/preview-ibex.ts'],
+    rules: {
+      // The preview adapter intentionally fulfills the same async application contract
+      // with synchronous in-memory data. Keeping Promise-returning methods preserves
+      // channel parity without adding artificial awaits or touching Supabase.
+      '@typescript-eslint/require-await': 'off',
+    },
+  },
 );
