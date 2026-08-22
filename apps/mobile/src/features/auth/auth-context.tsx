@@ -53,9 +53,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        supabase.auth.startAutoRefresh();
+        void supabase.auth.startAutoRefresh();
       } else {
-        supabase.auth.stopAutoRefresh();
+        void supabase.auth.stopAutoRefresh();
       }
     });
 
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       mounted = false;
       subscription.unsubscribe();
       appStateSubscription.remove();
-      supabase.auth.stopAutoRefresh();
+      void supabase.auth.stopAutoRefresh();
     };
   }, []);
 
