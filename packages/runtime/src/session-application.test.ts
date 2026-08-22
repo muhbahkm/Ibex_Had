@@ -118,6 +118,37 @@ describe('IbexSessionApplication', () => {
     expect(result.businessName).toBe('باحكم للعسل');
   });
 
+  it('derives the merchant actor for private document preparation', async () => {
+    const client = new RecordingSessionClient(
+      { data: { user: { id: 'merchant-user' } }, error: null },
+      {
+        data: {
+          documentId: 'document-1',
+          transactionId: 'tx-1',
+          storageBucket: 'transaction-documents',
+          storagePath: 'businesses/business-1/transactions/tx-1/document-1.pdf',
+          fileName: 'فاتورة.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 4096,
+        },
+        error: null,
+      },
+    );
+    const application = new IbexSessionApplication(client);
+
+    await application.prepareTransactionDocument(
+      { transactionId: 'tx-1', fileName: 'فاتورة.pdf', mimeType: 'application/pdf', sizeBytes: 4096 },
+      'document-request-1',
+    );
+
+    expect(client.calls[0]?.functionName).toBe('app_prepare_transaction_document');
+    expect(client.calls[0]?.args).toMatchObject({
+      p_actor_user_id: 'merchant-user',
+      p_transaction_id: 'tx-1',
+      p_request_id: 'document-request-1',
+    });
+  });
+
   it('rejects execution when no authenticated user exists', async () => {
     const client = new RecordingSessionClient(
       { data: { user: null }, error: null },
