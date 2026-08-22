@@ -50,6 +50,20 @@ function normalizeDisputeStatus(value: DisputeStatus | undefined): DisputeStatus
   if (!['open', 'under_review', 'resolved', 'rejected', 'withdrawn'].includes(value)) throw new Error('Invalid dispute status');
   return value;
 }
+function normalizeDocumentFileName(value: string): string {
+  const normalized = value.trim().replace(/[\r\n\t]+/g, ' ');
+  if (normalized.length < 1 || normalized.length > 240) throw new Error('Document file name must contain between 1 and 240 characters');
+  return normalized;
+}
+function normalizeDocumentMimeType(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(normalized)) throw new Error('Unsupported document type');
+  return normalized;
+}
+function normalizeDocumentSize(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 10 * 1024 * 1024) throw new Error('Document size must be between 1 byte and 10 MiB');
+  return value;
+}
 
 export class IbexApplication {
   constructor(private readonly repository: ApplicationRepository) {}
@@ -77,6 +91,22 @@ export class IbexApplication {
     const resolutionNote = input.resolutionNote ? normalizeReviewText(input.resolutionNote, 'Resolution note', input.status !== 'under_review') : undefined;
     if (input.status !== 'under_review' && !resolutionNote) throw new Error('Resolution note is required');
     return this.repository.updateDispute({ actorUserId: requireId(context.actorUserId, 'actorUserId'), disputeId: requireId(input.disputeId, 'disputeId'), status: input.status, ...(resolutionNote ? { resolutionNote } : {}), ...(context.requestId ? { requestId: context.requestId } : {}) });
+  }
+  async prepareTransactionDocument(context: RequestContext, input: { readonly transactionId: string; readonly fileName: string; readonly mimeType: string; readonly sizeBytes: number }) {
+    return this.repository.prepareTransactionDocument({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+      transactionId: requireId(input.transactionId, 'transactionId'),
+      fileName: normalizeDocumentFileName(input.fileName),
+      mimeType: normalizeDocumentMimeType(input.mimeType),
+      sizeBytes: normalizeDocumentSize(input.sizeBytes),
+      ...(context.requestId ? { requestId: context.requestId } : {}),
+    });
+  }
+  async listTransactionDocuments(context: RequestContext, input: { readonly transactionId: string }) {
+    return this.repository.listTransactionDocuments({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+      transactionId: requireId(input.transactionId, 'transactionId'),
+    });
   }
   async postSale(context: RequestContext, input: { readonly businessId: string; readonly customerIdentityId: string; readonly accountId: string; readonly amountMinor: string; readonly currencyCode: string; readonly idempotencyKey: string; readonly occurredAt?: string; readonly description?: string }) {
     return this.repository.postMovement({ actorUserId: requireId(context.actorUserId, 'actorUserId'), businessId: requireId(input.businessId, 'businessId'), customerIdentityId: requireId(input.customerIdentityId, 'customerIdentityId'), accountId: requireId(input.accountId, 'accountId'), transactionType: 'sale_on_account', direction: 'debit', amountMinor: parsePositiveMinorUnits(input.amountMinor), currencyCode: normalizeCurrencyCode(input.currencyCode), idempotencyKey: normalizeIdempotencyKey(input.idempotencyKey), ...(input.occurredAt ? { occurredAt: input.occurredAt } : {}), ...(input.description ? { description: input.description.trim() } : {}), ...(context.requestId ? { requestId: context.requestId } : {}) });
