@@ -98,7 +98,6 @@ export default function CustomerAccountsScreen() {
 
         {error ? <ErrorState message={error} onRetry={() => setRefreshNonce((value) => value + 1)} /> : null}
         {loading ? <LoadingState label="جارٍ تحميل الحسابات" /> : null}
-
         {!loading && !error && accounts.length === 0 ? <EmptyState title="لا توجد حسابات بعد" message="افتح أول حساب عملة لهذا العميل من الخيارات أعلاه." /> : null}
 
         <View style={styles.list}>
@@ -125,7 +124,7 @@ const styles = StyleSheet.create({
   content: { gap: theme.spacing.lg, paddingTop: theme.spacing.lg, paddingBottom: theme.spacing.xl },
   identityBlock: { gap: theme.spacing.xxs },
   identityLabel: { color: theme.colors.accent, fontSize: theme.typography.styles.label.fontSize, fontWeight: '700', textAlign: 'right', writingDirection: 'rtl' },
-  identityValue: { color: theme.colors.text, fontSize: theme.typography.styles.title.fontSize, fontWeight: '700', textAlign: 'right', writingDirection: phoneDirection },
+  identityValue: { color: theme.colors.text, fontSize: theme.typography.styles.title.fontSize, fontWeight: '700', textAlign: 'right', writingDirection: 'ltr' },
   identityHint: { color: theme.colors.textMuted, fontSize: theme.typography.caption, lineHeight: 20, textAlign: 'right', writingDirection: 'rtl' },
   inviteCopy: { gap: theme.spacing.xs, marginBottom: theme.spacing.md },
   sectionHeader: { gap: theme.spacing.xxs },
@@ -141,5 +140,3 @@ const styles = StyleSheet.create({
   balance: { color: theme.colors.text, fontSize: theme.typography.styles.heading.fontSize, fontWeight: '700', writingDirection: 'ltr' },
   pressed: { opacity: 0.72 },
 });
-
-const phoneDirection = 'ltr' as const;
