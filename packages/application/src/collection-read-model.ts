@@ -45,10 +45,13 @@ export interface BusinessCollectionOverview {
   readonly customers: readonly CustomerCollectionSummary[];
 }
 
-type CollectionRepository = Pick<
-  ApplicationRepository,
-  'listBusinessCustomers' | 'listCustomerAccounts' | 'getStatement'
->;
+export interface CollectionDataSource {
+  listBusinessCustomers(input: { readonly businessId: string; readonly limit: number }): Promise<readonly BusinessCustomerSummaryRecord[]>;
+  listCustomerAccounts(input: { readonly businessCustomerId: string }): Promise<readonly CustomerAccountSummaryRecord[]>;
+  getStatement(input: { readonly accountId: string; readonly limit: number }): Promise<readonly StatementEntryRecord[]>;
+}
+
+type CollectionRepository = Pick<ApplicationRepository, 'listBusinessCustomers' | 'listCustomerAccounts' | 'getStatement'>;
 
 function latestTimestamp(values: readonly (string | undefined)[]): string | undefined {
   const present = values.filter((value): value is string => Boolean(value));
@@ -87,12 +90,8 @@ function currencySummaries(customers: readonly CustomerCollectionSummary[]): rea
     .map(([currencyCode, value]) => ({ currencyCode, ...value }));
 }
 
-async function accountSnapshot(
-  repository: CollectionRepository,
-  actorUserId: string,
-  account: CustomerAccountSummaryRecord,
-): Promise<CollectionAccountSnapshot> {
-  const statement: readonly StatementEntryRecord[] = await repository.getStatement({ actorUserId, accountId: account.accountId, limit: 1 });
+async function accountSnapshot(dataSource: CollectionDataSource, account: CustomerAccountSummaryRecord): Promise<CollectionAccountSnapshot> {
+  const statement = await dataSource.getStatement({ accountId: account.accountId, limit: 1 });
   const lastMovementAt = statement[0]?.occurredAt;
   return {
     accountId: account.accountId,
@@ -103,16 +102,14 @@ async function accountSnapshot(
 }
 
 async function customerSummary(
-  repository: CollectionRepository,
-  actorUserId: string,
+  dataSource: CollectionDataSource,
   customer: BusinessCustomerSummaryRecord,
   now: Date,
   staleAfterDays: number,
 ): Promise<CustomerCollectionSummary> {
-  const accounts = await repository.listCustomerAccounts({ actorUserId, businessCustomerId: customer.businessCustomerId });
-  const snapshots = await Promise.all(accounts.map((account) => accountSnapshot(repository, actorUserId, account)));
+  const accounts = await dataSource.listCustomerAccounts({ businessCustomerId: customer.businessCustomerId });
+  const snapshots = await Promise.all(accounts.map((account) => accountSnapshot(dataSource, account)));
   const lastMovementAt = latestTimestamp(snapshots.map((account) => account.lastMovementAt));
-  const state = followUpState(snapshots, now, staleAfterDays);
   return {
     businessCustomerId: customer.businessCustomerId,
     customerIdentityId: customer.customerIdentityId,
@@ -121,20 +118,20 @@ async function customerSummary(
     accountCount: customer.accountCount,
     debtAccountCount: snapshots.filter((account) => account.balanceMinor > 0n).length,
     ...(lastMovementAt ? { lastMovementAt } : {}),
-    followUpState: state,
+    followUpState: followUpState(snapshots, now, staleAfterDays),
     accounts: snapshots,
   };
 }
 
-export async function buildBusinessCollectionOverview(
-  repository: CollectionRepository,
-  input: { readonly actorUserId: string; readonly businessId: string; readonly limit: number; readonly staleAfterDays?: number; readonly now?: Date },
+export async function assembleBusinessCollectionOverview(
+  dataSource: CollectionDataSource,
+  input: { readonly businessId: string; readonly limit: number; readonly staleAfterDays?: number; readonly now?: Date },
 ): Promise<BusinessCollectionOverview> {
   const staleAfterDays = input.staleAfterDays ?? 30;
   if (!Number.isInteger(staleAfterDays) || staleAfterDays < 1 || staleAfterDays > 3650) throw new Error('staleAfterDays must be an integer between 1 and 3650');
   const now = input.now ?? new Date();
-  const customerRows = await repository.listBusinessCustomers({ actorUserId: input.actorUserId, businessId: input.businessId, limit: input.limit });
-  const customers = await Promise.all(customerRows.map((customer) => customerSummary(repository, input.actorUserId, customer, now, staleAfterDays)));
+  const customerRows = await dataSource.listBusinessCustomers({ businessId: input.businessId, limit: input.limit });
+  const customers = await Promise.all(customerRows.map((customer) => customerSummary(dataSource, customer, now, staleAfterDays)));
   const ranked = [...customers].sort((left, right) => {
     const rank = { stale_debt: 0, active_debt: 1, clear: 2 } as const;
     const stateDifference = rank[left.followUpState] - rank[right.followUpState];
@@ -152,4 +149,16 @@ export async function buildBusinessCollectionOverview(
     currencies: currencySummaries(ranked),
     customers: ranked,
   };
+}
+
+export async function buildBusinessCollectionOverview(
+  repository: CollectionRepository,
+  input: { readonly actorUserId: string; readonly businessId: string; readonly limit: number; readonly staleAfterDays?: number; readonly now?: Date },
+): Promise<BusinessCollectionOverview> {
+  const dataSource: CollectionDataSource = {
+    listBusinessCustomers: ({ businessId, limit }) => repository.listBusinessCustomers({ actorUserId: input.actorUserId, businessId, limit }),
+    listCustomerAccounts: ({ businessCustomerId }) => repository.listCustomerAccounts({ actorUserId: input.actorUserId, businessCustomerId }),
+    getStatement: ({ accountId, limit }) => repository.getStatement({ actorUserId: input.actorUserId, accountId, limit }),
+  };
+  return assembleBusinessCollectionOverview(dataSource, input);
 }
