@@ -202,6 +202,12 @@ export class IbexApplication {
     });
   }
 
+  async listMyCustomerAccounts(context: RequestContext) {
+    return this.repository.listMyCustomerAccounts({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+    });
+  }
+
   async getStatement(
     context: RequestContext,
     input: {
