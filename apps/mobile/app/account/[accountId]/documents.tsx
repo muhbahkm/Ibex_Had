@@ -1,7 +1,7 @@
 import type { TransactionDocumentRecord } from '../../../../../packages/application/src/ports';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../../src/features/auth/auth-context';
 import {
@@ -9,7 +9,9 @@ import {
   pickAndUploadTransactionDocument,
 } from '../../../src/features/documents/document-service';
 import { ibex } from '../../../src/lib/ibex';
-import { AppScreen, ErrorMessage, Heading, PrimaryButton } from '../../../src/ui/primitives';
+import { EmptyState, ErrorState, InlineFeedback, LoadingState, Surface, Button } from '../../../src/ui/primitives';
+import { SectionHeading, StatusBadge } from '../../../src/ui/operational-primitives';
+import { SecondaryShell } from '../../../src/ui/secondary-shell';
 import { theme } from '../../../src/ui/theme';
 
 function param(value: string | string[] | undefined): string {
@@ -28,24 +30,19 @@ function typeLabel(mimeType: string): string {
   if (mimeType === 'image/jpeg') return 'JPG';
   if (mimeType === 'image/png') return 'PNG';
   if (mimeType === 'image/webp') return 'WEBP';
-  return 'ملف';
+  return 'FILE';
 }
 
 export default function TransactionDocumentsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    accountId?: string;
-    transactionId?: string;
-    mode?: string;
-    movementLabel?: string;
-  }>();
+  const params = useLocalSearchParams<{ accountId?: string; transactionId?: string; mode?: string; movementLabel?: string }>();
   const accountId = param(params.accountId);
   const transactionId = param(params.transactionId);
   const customerMode = param(params.mode) === 'customer';
   const movementLabel = param(params.movementLabel) || 'الحركة';
   const { session, isPreviewMode } = useAuth();
   const [documents, setDocuments] = useState<readonly TransactionDocumentRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isPreviewMode);
   const [uploading, setUploading] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,10 +65,9 @@ export default function TransactionDocumentsScreen() {
 
   if (!session) return <Redirect href="/sign-in" />;
   if (!accountId || !transactionId) return <Redirect href="/home" />;
-  if (isPreviewMode) return <Redirect href="/home" />;
 
   const upload = () => {
-    if (uploading) return;
+    if (uploading || isPreviewMode) return;
     setError(null);
     setUploading(true);
     void pickAndUploadTransactionDocument(transactionId)
@@ -90,84 +86,82 @@ export default function TransactionDocumentsScreen() {
   };
 
   return (
-    <AppScreen>
+    <SecondaryShell title="المستندات" subtitle={movementLabel} onBack={() => router.back()}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>رجوع</Text>
-        </Pressable>
-        <Heading
-          title="المستندات"
-          subtitle={`${movementLabel} · الملفات المرتبطة بهذه الحركة فقط.`}
-        />
+        <SectionHeading title="ملفات الحركة" caption="إثباتات وفواتير مرتبطة بهذه الحركة فقط، دون روابط عامة دائمة." />
 
-        {!customerMode ? (
-          <View style={styles.uploadSection}>
-            <PrimaryButton loading={uploading} onPress={upload}>إرفاق مستند</PrimaryButton>
+        {isPreviewMode ? (
+          <InlineFeedback tone="info">
+            المستندات الحقيقية معطلة في وضع العرض لأن فتحها ورفعها يعتمد على Storage وروابط موقعة. يمكنك متابعة بقية المسار دون مغادرة الشاشة.
+          </InlineFeedback>
+        ) : null}
+
+        {!customerMode && !isPreviewMode ? (
+          <Surface variant="tinted">
+            <Text style={styles.uploadTitle}>إضافة إثبات</Text>
             <Text style={styles.uploadHint}>PDF أو JPG أو PNG أو WEBP، بحد أقصى 10 MB.</Text>
-          </View>
-        ) : null}
-
-        <ErrorMessage message={error} />
-        {loading ? <ActivityIndicator color={theme.colors.primary} style={styles.loader} /> : null}
-
-        <View style={styles.list}>
-          {documents.map((document) => (
-            <View key={document.documentId} style={styles.documentCard}>
-              <View style={styles.documentInfo}>
-                <Text style={styles.fileName} numberOfLines={2}>{document.fileName}</Text>
-                <Text style={styles.metadata}>
-                  {typeLabel(document.mimeType)} · {formatFileSize(document.sizeBytes)} · {new Date(document.createdAt).toLocaleDateString('en-GB')}
-                </Text>
-              </View>
-              <Pressable
-                disabled={openingId !== null}
-                onPress={() => open(document)}
-                style={({ pressed }) => [styles.openButton, pressed ? styles.pressed : null]}
-              >
-                {openingId === document.documentId
-                  ? <ActivityIndicator color={theme.colors.primary} />
-                  : <Text style={styles.openText}>فتح</Text>}
-              </Pressable>
+            <View style={styles.uploadAction}>
+              <Button loading={uploading} onPress={upload}>إرفاق مستند</Button>
             </View>
-          ))}
-        </View>
+          </Surface>
+        ) : null}
 
-        {!loading && documents.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>لا توجد مستندات</Text>
-            <Text style={styles.emptyText}>
-              {customerMode
-                ? 'لم يرفق النشاط مستندًا بهذه الحركة حتى الآن.'
-                : 'يمكنك إرفاق فاتورة أو صورة إثبات لتظهر للمستخدمين المصرح لهم بالحركة.'}
-            </Text>
+        {error ? <ErrorState message={error} onRetry={() => setRefreshKey((value) => value + 1)} retryLabel="إعادة المحاولة" /> : null}
+        {loading ? <LoadingState label="جارٍ تحميل المستندات" /> : null}
+
+        {!loading && !error && documents.length > 0 ? (
+          <View style={styles.list}>
+            {documents.map((document) => (
+              <Surface key={document.documentId} variant="outlined">
+                <View style={styles.documentRow}>
+                  <View style={styles.documentInfo}>
+                    <View style={styles.fileHeader}>
+                      <Text style={styles.fileName} numberOfLines={2}>{document.fileName}</Text>
+                      <StatusBadge tone="info">{typeLabel(document.mimeType)}</StatusBadge>
+                    </View>
+                    <Text style={styles.metadata}>
+                      {formatFileSize(document.sizeBytes)} · {new Date(document.createdAt).toLocaleDateString('en-GB')}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={openingId !== null}
+                    onPress={() => open(document)}
+                    style={({ pressed }) => [styles.openButton, pressed ? styles.pressed : null]}
+                  >
+                    <Text style={styles.openText}>{openingId === document.documentId ? '...' : 'فتح'}</Text>
+                  </Pressable>
+                </View>
+              </Surface>
+            ))}
           </View>
         ) : null}
 
-        <Text style={styles.securityNote}>
-          المستندات خاصة. يتم فتحها عبر رابط مؤقت ولا تُنشر برابط عام.
-        </Text>
+        {!loading && !error && documents.length === 0 ? (
+          <EmptyState
+            title={isPreviewMode ? 'المستندات غير متاحة في العرض' : 'لا توجد مستندات'}
+            message={customerMode ? 'لم يرفق النشاط مستندًا بهذه الحركة حتى الآن.' : 'يمكن إضافة فاتورة أو صورة إثبات عند العمل في البيئة المتصلة.'}
+          />
+        ) : null}
+
+        <InlineFeedback tone="success">المستندات الخاصة تُفتح عبر روابط مؤقتة موقعة، ولا تتحول إلى ملفات عامة.</InlineFeedback>
       </ScrollView>
-    </AppScreen>
+    </SecondaryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: theme.spacing.xl },
-  backButton: { alignSelf: 'flex-start', paddingVertical: theme.spacing.sm, marginBottom: theme.spacing.md },
-  backText: { color: theme.colors.textMuted, fontWeight: '700', writingDirection: 'rtl' },
-  uploadSection: { marginBottom: theme.spacing.lg },
-  uploadHint: { color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.sm, textAlign: 'right', writingDirection: 'rtl' },
-  loader: { marginVertical: theme.spacing.lg },
+  content: { gap: theme.spacing.lg, paddingTop: theme.spacing.lg, paddingBottom: theme.spacing.xl },
+  uploadTitle: { color: theme.colors.text, fontSize: theme.typography.styles.bodyStrong.fontSize, lineHeight: theme.typography.styles.bodyStrong.lineHeight, fontWeight: theme.typography.styles.bodyStrong.fontWeight, textAlign: 'right', writingDirection: 'rtl' },
+  uploadHint: { color: theme.colors.textMuted, fontSize: theme.typography.styles.caption.fontSize, lineHeight: theme.typography.styles.caption.lineHeight, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },
+  uploadAction: { marginTop: theme.spacing.md },
   list: { gap: theme.spacing.sm },
-  documentCard: { minHeight: 86, padding: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface, flexDirection: 'row-reverse', alignItems: 'center', gap: theme.spacing.md },
+  documentRow: { minHeight: 76, flexDirection: 'row-reverse', alignItems: 'center', gap: theme.spacing.md },
   documentInfo: { flex: 1, gap: theme.spacing.xs },
-  fileName: { color: theme.colors.text, fontWeight: '700', textAlign: 'right', writingDirection: 'rtl' },
-  metadata: { color: theme.colors.textMuted, fontSize: theme.typography.caption, textAlign: 'right', writingDirection: 'ltr' },
-  openButton: { minWidth: 68, minHeight: 42, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
-  openText: { color: theme.colors.primary, fontWeight: '800', writingDirection: 'rtl' },
+  fileHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: theme.spacing.sm },
+  fileName: { flex: 1, color: theme.colors.text, fontSize: theme.typography.styles.bodyStrong.fontSize, lineHeight: theme.typography.styles.bodyStrong.lineHeight, fontWeight: theme.typography.styles.bodyStrong.fontWeight, textAlign: 'right', writingDirection: 'rtl' },
+  metadata: { color: theme.colors.textMuted, fontSize: theme.typography.styles.caption.fontSize, lineHeight: theme.typography.styles.caption.lineHeight, textAlign: 'right', writingDirection: 'ltr' },
+  openButton: { minWidth: theme.layout.minTouchTarget, minHeight: theme.layout.minTouchTarget, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  openText: { color: theme.colors.accent, fontWeight: '800', writingDirection: 'rtl' },
   pressed: { opacity: 0.68 },
-  emptyCard: { padding: theme.spacing.lg, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surfaceMuted },
-  emptyTitle: { color: theme.colors.text, fontWeight: '700', textAlign: 'right', writingDirection: 'rtl' },
-  emptyText: { color: theme.colors.textMuted, marginTop: theme.spacing.sm, textAlign: 'right', writingDirection: 'rtl' },
-  securityNote: { color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.xl, textAlign: 'right', writingDirection: 'rtl' },
 });
