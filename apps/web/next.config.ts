@@ -1,16 +1,25 @@
 import type { NextConfig } from 'next';
 
+type WebpackResolveLike = {
+  extensionAlias?: Record<string, readonly string[]>;
+};
+
+type WebpackConfigLike = {
+  resolve: WebpackResolveLike;
+};
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   typedRoutes: true,
   webpack(config) {
-    config.resolve.extensionAlias = {
-      ...config.resolve.extensionAlias,
+    const typedConfig = config as WebpackConfigLike;
+    typedConfig.resolve.extensionAlias = {
+      ...typedConfig.resolve.extensionAlias,
       '.js': ['.ts', '.tsx', '.js'],
       '.mjs': ['.mts', '.mjs'],
       '.cjs': ['.cts', '.cjs'],
     };
-    return config;
+    return typedConfig;
   },
 };
 
