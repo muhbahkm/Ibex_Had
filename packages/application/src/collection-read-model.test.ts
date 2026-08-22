@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { assembleBusinessCollectionOverview, type CollectionDataSource } from './collection-read-model.js';
+import {
+  assembleBusinessCollectionOverview,
+  assembleBusinessCollectionOverviewFromRows,
+  type CollectionDataSource,
+} from './collection-read-model.js';
 
 const dataSource: CollectionDataSource = {
   listBusinessCustomers() {
@@ -38,6 +42,28 @@ describe('assembleBusinessCollectionOverview', () => {
     expect(overview.debtorCustomerCount).toBe(1);
     expect(overview.staleDebtorCustomerCount).toBe(1);
     expect(overview.customers[0]?.followUpState).toBe('stale_debt');
+    expect(overview.currencies).toEqual([
+      { currencyCode: 'SAR', receivableMinor: 500n, payableMinor: 0n, debtorAccountCount: 1, creditAccountCount: 0 },
+      { currencyCode: 'YER', receivableMinor: 1000n, payableMinor: 300n, debtorAccountCount: 1, creditAccountCount: 1 },
+    ]);
+  });
+
+  it('assembles the same semantics from one backend row set', () => {
+    const overview = assembleBusinessCollectionOverviewFromRows([
+      { businessCustomerId: 'c1', customerIdentityId: 'i1', displayName: 'أحمد', accountCount: 2, accountId: 'a1', currencyCode: 'YER', balanceMinor: 1000n, lastMovementAt: '2026-01-01T00:00:00.000Z' },
+      { businessCustomerId: 'c1', customerIdentityId: 'i1', displayName: 'أحمد', accountCount: 2, accountId: 'a2', currencyCode: 'SAR', balanceMinor: 500n, lastMovementAt: '2026-02-15T00:00:00.000Z' },
+      { businessCustomerId: 'c2', customerIdentityId: 'i2', displayName: 'سالم', accountCount: 1, accountId: 'a3', currencyCode: 'YER', balanceMinor: -300n, lastMovementAt: '2026-02-20T00:00:00.000Z' },
+      { businessCustomerId: 'c3', customerIdentityId: 'i3', displayName: 'بدون حساب', accountCount: 0 },
+    ], {
+      businessId: 'b1',
+      staleAfterDays: 30,
+      now: new Date('2026-03-10T00:00:00.000Z'),
+    });
+
+    expect(overview.customerCount).toBe(3);
+    expect(overview.debtorCustomerCount).toBe(1);
+    expect(overview.staleDebtorCustomerCount).toBe(1);
+    expect(overview.customers.find((customer) => customer.businessCustomerId === 'c3')?.accounts).toEqual([]);
     expect(overview.currencies).toEqual([
       { currencyCode: 'SAR', receivableMinor: 500n, payableMinor: 0n, debtorAccountCount: 1, creditAccountCount: 0 },
       { currencyCode: 'YER', receivableMinor: 1000n, payableMinor: 300n, debtorAccountCount: 1, creditAccountCount: 1 },
