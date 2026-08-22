@@ -1,9 +1,11 @@
 'use client';
 
 import type { BusinessCollectionOverview } from '../../../../../../packages/application/src/collection-read-model';
+import type { TodayFollowUpRecord } from '../../../../../../packages/application/src/credit-followup';
 import type { BusinessCustomerSummaryRecord, BusinessSummaryRecord } from '../../../../../../packages/application/src/ports';
 import { useEffect, useMemo, useState } from 'react';
 
+import { creditFollowUp } from '../../../../lib/credit-followup';
 import { ibex } from '../../../../lib/ibex';
 import { formatMinorUnits } from '../../../../lib/money';
 
@@ -11,10 +13,17 @@ function messageOf(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'تعذر تنفيذ العملية.';
 }
 
+function followUpLabel(row: TodayFollowUpRecord): string {
+  if (row.followUpState === 'overdue') return `متأخر ${String(row.daysOverdue)} يوم`;
+  if (row.followUpState === 'due_today') return 'مستحق اليوم';
+  return 'مستحق قريبًا';
+}
+
 export function BusinessWorkspaceClient({ businessId }: { readonly businessId: string }) {
   const [business, setBusiness] = useState<BusinessSummaryRecord | null>(null);
   const [customers, setCustomers] = useState<readonly BusinessCustomerSummaryRecord[]>([]);
   const [collection, setCollection] = useState<BusinessCollectionOverview | null>(null);
+  const [followUps, setFollowUps] = useState<readonly TodayFollowUpRecord[]>([]);
   const [search, setSearch] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -24,14 +33,16 @@ export function BusinessWorkspaceClient({ businessId }: { readonly businessId: s
 
   async function load(query?: string) {
     setError(null);
-    const [businessRows, customerRows, collectionOverview] = await Promise.all([
+    const [businessRows, customerRows, collectionOverview, followUpRows] = await Promise.all([
       ibex.listBusinesses(),
       ibex.listBusinessCustomers({ businessId, limit: 200, ...(query?.trim() ? { search: query.trim() } : {}) }),
       ibex.getBusinessCollectionOverview({ businessId, limit: 200, staleAfterDays: 30 }),
+      creditFollowUp.listTodayFollowUps({ businessId, limit: 100, dueSoonDays: 7 }),
     ]);
     setBusiness(businessRows.find((row) => row.businessId === businessId) ?? null);
     setCustomers(customerRows);
     setCollection(collectionOverview);
+    setFollowUps(followUpRows);
   }
 
   useEffect(() => {
@@ -44,6 +55,8 @@ export function BusinessWorkspaceClient({ businessId }: { readonly businessId: s
 
   const title = useMemo(() => business?.name ?? 'مساحة النشاط', [business]);
   const attentionCustomers = useMemo(() => collection?.customers.filter((customer) => customer.followUpState === 'stale_debt').slice(0, 5) ?? [], [collection]);
+  const overdueCount = useMemo(() => followUps.filter((row) => row.followUpState === 'overdue').length, [followUps]);
+  const dueTodayCount = useMemo(() => followUps.filter((row) => row.followUpState === 'due_today').length, [followUps]);
 
   async function submitSearch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,10 +89,44 @@ export function BusinessWorkspaceClient({ businessId }: { readonly businessId: s
 
       <section className="hero compact-hero">
         <h1>العملاء والحسابات</h1>
-        <p>ابحث عن العميل أو أنشئ علاقة جديدة، وتابع الذمم من Read Model خلفي واحد يحافظ على فصل العملات.</p>
+        <p>ابحث عن العميل أو أنشئ علاقة جديدة، وتابع الذمم والاستحقاقات من Read Models خلفية تحافظ على فصل العملات.</p>
       </section>
 
       {error ? <div className="error page-message">{error}</div> : null}
+
+      <div className="grid">
+        <section className="card span-4">
+          <p className="section-subtitle">متأخر بعد المهلة</p>
+          <h2 className="section-title">{String(overdueCount)}</h2>
+          <p className="row-meta">استحقاق صريح، وليس مجرد خمول في الحساب</p>
+        </section>
+        <section className="card span-4">
+          <p className="section-subtitle">مستحق اليوم</p>
+          <h2 className="section-title">{String(dueTodayCount)}</h2>
+          <p className="row-meta">وفق Snapshot شروط الائتمان عند البيع</p>
+        </section>
+        <section className="card span-4">
+          <p className="section-subtitle">ضمن نافذة المتابعة</p>
+          <h2 className="section-title">{String(followUps.length)}</h2>
+          <p className="row-meta">متأخر + اليوم + الأيام السبعة القادمة</p>
+        </section>
+
+        <section className="card span-12">
+          <div className="section-head"><div><h2 className="section-title">متابعة اليوم</h2><p className="section-subtitle">الأولوية حسب الاستحقاق والزمن، لا حسب مقارنة المبالغ بين العملات.</p></div></div>
+          <div className="list">
+            {followUps.slice(0, 8).map((row) => (
+              <a className="row-card interactive-row" key={row.accountId} href={`/dashboard/business/${businessId}/customer/${row.businessCustomerId}/${row.customerIdentityId}`}>
+                <div className="row-main">
+                  <p className="row-title">{row.displayName}</p>
+                  <p className="row-meta">{followUpLabel(row)} · استحقاق {new Date(row.oldestDueAt).toLocaleDateString('en-GB')} · شروط {String(row.termsDays)} + {String(row.graceDays)} يوم</p>
+                </div>
+                <div><p className="row-title ltr">{formatMinorUnits(row.balanceMinor, row.currencyCode)}</p><p className="row-meta ltr">{row.currencyCode}</p></div>
+              </a>
+            ))}
+            {followUps.length === 0 ? <div className="row-card muted">لا توجد حسابات دخلت نافذة المتابعة المبنية على الاستحقاق.</div> : null}
+          </div>
+        </section>
+      </div>
 
       {collection ? (
         <div className="grid">
@@ -89,9 +136,9 @@ export function BusinessWorkspaceClient({ businessId }: { readonly businessId: s
             <p className="row-meta">من أصل {String(collection.customerCount)} عميل</p>
           </section>
           <section className="card span-4">
-            <p className="section-subtitle">تحتاج متابعة</p>
+            <p className="section-subtitle">متابعة راكدة</p>
             <h2 className="section-title">{String(collection.staleDebtorCustomerCount)}</h2>
-            <p className="row-meta">رصيد موجب بلا حركة خلال {String(collection.staleAfterDays)} يومًا</p>
+            <p className="row-meta">إشارة نشاط منفصلة عن الاستحقاق التعاقدي</p>
           </section>
           <section className="card span-4">
             <p className="section-subtitle">العملات النشطة</p>
@@ -119,8 +166,8 @@ export function BusinessWorkspaceClient({ businessId }: { readonly businessId: s
           </section>
 
           <aside className="card span-4">
-            <h2 className="section-title">أولوية المتابعة</h2>
-            <p className="section-subtitle">هذه إشارة تشغيلية وليست حكمًا بأن الدين متأخر تعاقديًا.</p>
+            <h2 className="section-title">أولوية الخمول</h2>
+            <p className="section-subtitle">هذه إشارة تشغيلية لغياب الحركة وليست حكمًا بالتأخر.</p>
             <div className="list form-space">
               {attentionCustomers.map((customer) => (
                 <a className="row-card interactive-row" key={customer.businessCustomerId} href={`/dashboard/business/${businessId}/customer/${customer.businessCustomerId}/${customer.customerIdentityId}`}>
@@ -128,7 +175,7 @@ export function BusinessWorkspaceClient({ businessId }: { readonly businessId: s
                     <p className="row-title">{customer.displayName}</p>
                     <p className="row-meta">{customer.lastMovementAt ? new Date(customer.lastMovementAt).toLocaleDateString('en-GB') : 'لا توجد حركة مسجلة'}</p>
                   </div>
-                  <span className="badge">متابعة</span>
+                  <span className="badge">راكدة</span>
                 </a>
               ))}
               {attentionCustomers.length === 0 ? <div className="row-card muted">لا توجد متابعة راكدة حاليًا.</div> : null}
