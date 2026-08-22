@@ -58,6 +58,22 @@ export interface MyCustomerAccountRecord {
   readonly balanceMinor: bigint;
 }
 
+export interface CustomerInviteRecord {
+  readonly inviteId: string;
+  readonly token: string;
+  readonly expiresAt: string;
+  readonly businessCustomerId: string;
+  readonly customerIdentityId: string;
+  readonly displayName: string;
+}
+
+export interface ClaimedCustomerInviteRecord {
+  readonly businessId: string;
+  readonly businessName: string;
+  readonly businessCustomerId: string;
+  readonly customerIdentityId: string;
+}
+
 export interface PostedMovementRecord {
   readonly transactionId: string;
   readonly accountId: string;
@@ -100,6 +116,19 @@ export interface OpenAccountPortInput {
   readonly requestId?: string;
 }
 
+export interface CreateCustomerInvitePortInput {
+  readonly actorUserId: string;
+  readonly businessCustomerId: string;
+  readonly ttlHours: number;
+  readonly requestId?: string;
+}
+
+export interface ClaimCustomerInvitePortInput {
+  readonly actorUserId: string;
+  readonly token: string;
+  readonly requestId?: string;
+}
+
 export interface PostMovementPortInput {
   readonly actorUserId: string;
   readonly businessId: string;
@@ -124,48 +153,23 @@ export interface ReverseTransactionPortInput {
   readonly requestId?: string;
 }
 
-export interface ListBusinessesPortInput {
-  readonly actorUserId: string;
-}
-
-export interface ListBusinessCustomersPortInput {
-  readonly actorUserId: string;
-  readonly businessId: string;
-  readonly limit: number;
-  readonly search?: string;
-}
-
-export interface ListCustomerAccountsPortInput {
-  readonly actorUserId: string;
-  readonly businessCustomerId: string;
-}
-
-export interface ListMyCustomerAccountsPortInput {
-  readonly actorUserId: string;
-}
-
-export interface GetStatementPortInput {
-  readonly actorUserId: string;
-  readonly accountId: string;
-  readonly limit: number;
-  readonly beforeOccurredAt?: string;
-}
+export interface ListBusinessesPortInput { readonly actorUserId: string; }
+export interface ListBusinessCustomersPortInput { readonly actorUserId: string; readonly businessId: string; readonly limit: number; readonly search?: string; }
+export interface ListCustomerAccountsPortInput { readonly actorUserId: string; readonly businessCustomerId: string; }
+export interface ListMyCustomerAccountsPortInput { readonly actorUserId: string; }
+export interface GetStatementPortInput { readonly actorUserId: string; readonly accountId: string; readonly limit: number; readonly beforeOccurredAt?: string; }
 
 export interface ApplicationRepository {
   createBusiness(input: CreateBusinessPortInput): Promise<BusinessRecord>;
   createCustomer(input: CreateCustomerPortInput): Promise<CustomerRecord>;
   openCustomerAccount(input: OpenAccountPortInput): Promise<AccountRecord>;
+  createCustomerInvite(input: CreateCustomerInvitePortInput): Promise<CustomerInviteRecord>;
+  claimCustomerInvite(input: ClaimCustomerInvitePortInput): Promise<ClaimedCustomerInviteRecord>;
   postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord>;
   reverseTransaction(input: ReverseTransactionPortInput): Promise<PostedMovementRecord>;
   listBusinesses(input: ListBusinessesPortInput): Promise<readonly BusinessSummaryRecord[]>;
-  listBusinessCustomers(
-    input: ListBusinessCustomersPortInput,
-  ): Promise<readonly BusinessCustomerSummaryRecord[]>;
-  listCustomerAccounts(
-    input: ListCustomerAccountsPortInput,
-  ): Promise<readonly CustomerAccountSummaryRecord[]>;
-  listMyCustomerAccounts(
-    input: ListMyCustomerAccountsPortInput,
-  ): Promise<readonly MyCustomerAccountRecord[]>;
+  listBusinessCustomers(input: ListBusinessCustomersPortInput): Promise<readonly BusinessCustomerSummaryRecord[]>;
+  listCustomerAccounts(input: ListCustomerAccountsPortInput): Promise<readonly CustomerAccountSummaryRecord[]>;
+  listMyCustomerAccounts(input: ListMyCustomerAccountsPortInput): Promise<readonly MyCustomerAccountRecord[]>;
   getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]>;
 }
