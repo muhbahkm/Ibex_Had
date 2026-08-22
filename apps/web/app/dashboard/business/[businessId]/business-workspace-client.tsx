@@ -65,7 +65,7 @@ export function BusinessWorkspaceClient({ businessId }: { readonly businessId: s
     <main className="shell">
       <header className="topbar">
         <div className="brand"><span className="brand-mark">IH</span><span>{title}</span></div>
-        <div className="actions"><a className="button ghost" href="/dashboard">لوحة التحكم</a></div>
+        <div className="actions"><a className="button ghost" href={`/dashboard/business/${businessId}/disputes`}>طلبات المراجعة</a><a className="button ghost" href="/dashboard">لوحة التحكم</a></div>
       </header>
 
       <section className="hero compact-hero">
