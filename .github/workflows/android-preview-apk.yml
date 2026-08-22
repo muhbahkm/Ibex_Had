@@ -66,13 +66,13 @@ jobs:
 
       - name: Build standalone release APK
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
       - name: Prepare artifact
         run: |
           mkdir -p .artifacts/android-preview
-          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk .artifacts/android-preview/IBEX-HAD-preview.apk
-          sha256sum .artifacts/android-preview/IBEX-HAD-preview.apk > .artifacts/android-preview/IBEX-HAD-preview.sha256
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk .artifacts/android-preview/IBEX-HAD-preview-arm64.apk
+          sha256sum .artifacts/android-preview/IBEX-HAD-preview-arm64.apk > .artifacts/android-preview/IBEX-HAD-preview-arm64.sha256
 
       - name: Upload preview APK
         uses: actions/upload-artifact@v4
