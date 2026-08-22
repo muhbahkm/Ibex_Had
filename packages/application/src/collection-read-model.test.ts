@@ -3,25 +3,25 @@ import { describe, expect, it } from 'vitest';
 import { assembleBusinessCollectionOverview, type CollectionDataSource } from './collection-read-model.js';
 
 const dataSource: CollectionDataSource = {
-  async listBusinessCustomers() {
-    return [
+  listBusinessCustomers() {
+    return Promise.resolve([
       { businessCustomerId: 'c1', customerIdentityId: 'i1', displayName: 'أحمد', accountCount: 2, createdAt: '2026-01-01T00:00:00.000Z' },
       { businessCustomerId: 'c2', customerIdentityId: 'i2', displayName: 'سالم', accountCount: 1, createdAt: '2026-01-02T00:00:00.000Z' },
-    ];
+    ]);
   },
-  async listCustomerAccounts({ businessCustomerId }) {
+  listCustomerAccounts({ businessCustomerId }) {
     if (businessCustomerId === 'c1') {
-      return [
+      return Promise.resolve([
         { accountId: 'a1', businessCustomerId: 'c1', currencyCode: 'YER', status: 'active', balanceMinor: 1000n },
         { accountId: 'a2', businessCustomerId: 'c1', currencyCode: 'SAR', status: 'active', balanceMinor: 500n },
-      ];
+      ]);
     }
-    return [{ accountId: 'a3', businessCustomerId: 'c2', currencyCode: 'YER', status: 'active', balanceMinor: -300n }];
+    return Promise.resolve([{ accountId: 'a3', businessCustomerId: 'c2', currencyCode: 'YER', status: 'active', balanceMinor: -300n }]);
   },
-  async getStatement({ accountId }) {
-    if (accountId === 'a1') return [{ transactionId: 't1', transactionType: 'sale_on_account', transactionStatus: 'posted', occurredAt: '2026-01-01T00:00:00.000Z', effectMinor: 1000n, balanceAfterMinor: 1000n, currencyCode: 'YER', canReverse: true }];
-    if (accountId === 'a2') return [{ transactionId: 't2', transactionType: 'sale_on_account', transactionStatus: 'posted', occurredAt: '2026-02-15T00:00:00.000Z', effectMinor: 500n, balanceAfterMinor: 500n, currencyCode: 'SAR', canReverse: true }];
-    return [{ transactionId: 't3', transactionType: 'receipt', transactionStatus: 'posted', occurredAt: '2026-02-20T00:00:00.000Z', effectMinor: -300n, balanceAfterMinor: -300n, currencyCode: 'YER', canReverse: true }];
+  getStatement({ accountId }) {
+    if (accountId === 'a1') return Promise.resolve([{ transactionId: 't1', transactionType: 'sale_on_account' as const, transactionStatus: 'posted' as const, occurredAt: '2026-01-01T00:00:00.000Z', effectMinor: 1000n, balanceAfterMinor: 1000n, currencyCode: 'YER', canReverse: true }]);
+    if (accountId === 'a2') return Promise.resolve([{ transactionId: 't2', transactionType: 'sale_on_account' as const, transactionStatus: 'posted' as const, occurredAt: '2026-02-15T00:00:00.000Z', effectMinor: 500n, balanceAfterMinor: 500n, currencyCode: 'SAR', canReverse: true }]);
+    return Promise.resolve([{ transactionId: 't3', transactionType: 'receipt' as const, transactionStatus: 'posted' as const, occurredAt: '2026-02-20T00:00:00.000Z', effectMinor: -300n, balanceAfterMinor: -300n, currencyCode: 'YER', canReverse: true }]);
   },
 };
 
