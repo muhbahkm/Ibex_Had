@@ -1,10 +1,11 @@
 import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { supabasePublicEnvironment } from './env';
 
-let browserClient: ReturnType<typeof createBrowserClient> | undefined;
+let browserClient: SupabaseClient | undefined;
 
-export function createClient() {
+export function createClient(): SupabaseClient {
   if (!browserClient) {
     const { url, publishableKey } = supabasePublicEnvironment();
     browserClient = createBrowserClient(url, publishableKey);
