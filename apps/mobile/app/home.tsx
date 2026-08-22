@@ -20,14 +20,22 @@ function errorMessage(error: unknown): string {
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
-  const { session } = auth;
+  const { session, isPreviewMode } = auth;
   const [businesses, setBusinesses] = useState<readonly BusinessSummaryRecord[]>([]);
   const [myAccounts, setMyAccounts] = useState<readonly MyCustomerAccountRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isPreviewMode);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      if (isPreviewMode) {
+        setBusinesses([]);
+        setMyAccounts([]);
+        setError(null);
+        setLoading(false);
+        return undefined;
+      }
+
       let active = true;
       setLoading(true);
       setError(null);
@@ -46,7 +54,7 @@ export default function HomeScreen() {
       return () => {
         active = false;
       };
-    }, []),
+    }, [isPreviewMode]),
   );
 
   if (!session) return <Redirect href="/sign-in" />;
@@ -66,6 +74,15 @@ export default function HomeScreen() {
         </View>
 
         <Heading title="IBEX HAD" subtitle="حساباتك كعميل ومساحات العمل التي تديرها، في مكان واحد." />
+
+        {isPreviewMode ? (
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTitle}>أنت داخل وضع الاختبار</Text>
+            <Text style={styles.previewBody}>
+              تم قبول رقم الجوال مباشرة دون OTP. أوقفنا استدعاءات البيانات المالية الحقيقية في هذا الوضع حتى لا يتحول تجاوز التحقق إلى صلاحية فعلية على Supabase.
+            </Text>
+          </View>
+        ) : null}
 
         <ErrorMessage message={error} />
         {loading ? <ActivityIndicator style={styles.loader} color={theme.colors.primary} /> : null}
@@ -113,8 +130,12 @@ export default function HomeScreen() {
 
           {!loading && businesses.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>لا يوجد نشاط بعد</Text>
-              <Text style={styles.emptyBody}>يمكنك إنشاء نشاط، أو استخدام IBEX HAD كعميل فقط.</Text>
+              <Text style={styles.emptyTitle}>{isPreviewMode ? 'معاينة الدخول جاهزة' : 'لا يوجد نشاط بعد'}</Text>
+              <Text style={styles.emptyBody}>
+                {isPreviewMode
+                  ? 'هذا الوضع مخصص حاليًا لعبور شاشة التسجيل واختبار الواجهة دون SMS. سنعيد الاتصال بالبيانات الحقيقية عند تفعيل التحقق الفعلي.'
+                  : 'يمكنك إنشاء نشاط، أو استخدام IBEX HAD كعميل فقط.'}
+              </Text>
             </View>
           ) : null}
 
@@ -141,7 +162,9 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          <PrimaryButton onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</PrimaryButton>
+          {!isPreviewMode ? (
+            <PrimaryButton onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</PrimaryButton>
+          ) : null}
         </View>
       </ScrollView>
     </AppScreen>
@@ -153,6 +176,9 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', justifyContent: 'space-between' },
   signOutButton: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
   signOutText: { color: theme.colors.textMuted, fontSize: theme.typography.caption, fontWeight: '600', writingDirection: 'rtl' },
+  previewCard: { padding: theme.spacing.lg, backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.spacing.xl },
+  previewTitle: { color: theme.colors.text, fontSize: theme.typography.body, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
+  previewBody: { color: theme.colors.textMuted, fontSize: theme.typography.caption, lineHeight: 21, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },
   loader: { marginVertical: theme.spacing.lg },
   section: { marginBottom: theme.spacing.xl },
   sectionTitle: { color: theme.colors.text, fontSize: theme.typography.heading, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
