@@ -1,6 +1,6 @@
 import { CollectionEngagementService } from '../../application/src/collection-engagement.js';
 import { SupabaseCollectionEngagementRepository } from '../../infrastructure/src/supabase-collection-engagement-repository.js';
-import { InfrastructureError, type RpcErrorLike } from '../../infrastructure/src/supabase-application-repository.js';
+import { InfrastructureError } from '../../infrastructure/src/supabase-application-repository.js';
 import type { SupabaseSessionClient } from './session-application.js';
 
 export class CollectionEngagementSessionService {
@@ -12,7 +12,7 @@ export class CollectionEngagementSessionService {
 
   private async currentUserId(): Promise<string> {
     const { data, error } = await this.client.auth.getUser();
-    if (error !== null) throw new InfrastructureError('auth.getUser', error as RpcErrorLike);
+    if (error !== null) throw new InfrastructureError('auth.getUser', error);
     const userId = data.user?.id.trim();
     if (!userId) throw new Error('An authenticated Supabase session is required');
     return userId;
