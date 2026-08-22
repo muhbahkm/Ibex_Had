@@ -1,5 +1,7 @@
 import { IbexApplication } from '../../application/src/application.js';
+import { getBusinessCollectionOverviewFromBackend } from '../../application/src/collection-read-model.js';
 import type { RequestContext } from '../../application/src/ports.js';
+import { SupabaseCollectionReadRepository } from '../../infrastructure/src/supabase-collection-read-repository.js';
 import {
   InfrastructureError,
   SupabaseApplicationRepository,
@@ -20,7 +22,12 @@ export class AuthenticationRequiredError extends Error {
 
 export class IbexSessionApplication {
   private readonly application: IbexApplication;
-  constructor(private readonly client: SupabaseSessionClient) { this.application = new IbexApplication(new SupabaseApplicationRepository(client)); }
+  private readonly collectionReads: SupabaseCollectionReadRepository;
+
+  constructor(private readonly client: SupabaseSessionClient) {
+    this.application = new IbexApplication(new SupabaseApplicationRepository(client));
+    this.collectionReads = new SupabaseCollectionReadRepository(client, () => this.currentUserId());
+  }
 
   async currentUserId(): Promise<string> {
     const { data, error } = await this.client.auth.getUser();
@@ -51,6 +58,13 @@ export class IbexSessionApplication {
   async listMyDisputes(requestId?: string) { return this.application.listMyDisputes(await this.context(requestId)); }
   async listBusinessDisputes(input: Parameters<IbexApplication['listBusinessDisputes']>[1], requestId?: string) { return this.application.listBusinessDisputes(await this.context(requestId), input); }
   async getStatement(input: Parameters<IbexApplication['getStatement']>[1], requestId?: string) { return this.application.getStatement(await this.context(requestId), input); }
+  async getBusinessCollectionOverview(input: { readonly businessId: string; readonly limit?: number; readonly staleAfterDays?: number }) {
+    return getBusinessCollectionOverviewFromBackend(this.collectionReads, {
+      businessId: input.businessId,
+      limit: input.limit ?? 100,
+      ...(input.staleAfterDays !== undefined ? { staleAfterDays: input.staleAfterDays } : {}),
+    });
+  }
 
   private async context(requestId?: string): Promise<RequestContext> {
     const actorUserId = await this.currentUserId();
