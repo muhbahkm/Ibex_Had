@@ -60,7 +60,7 @@ export function DashboardClient() {
       <header className="topbar">
         <div className="brand"><span className="brand-mark">IH</span><span>IBEX HAD</span></div>
         <div className="actions">
-          <span className="badge">Merchant Web</span>
+          <a className="button ghost" href="/dashboard/notifications">الإشعارات{notifications.length > 0 ? ` (${notifications.length})` : ''}</a>
           <button className="button ghost" onClick={() => void signOut()}>تسجيل الخروج</button>
         </div>
       </header>
@@ -93,8 +93,7 @@ export function DashboardClient() {
           </section>
 
           <aside className="card span-4">
-            <h2 className="section-title">الإشعارات</h2>
-            <p className="section-subtitle">أهم الأحداث غير المقروءة فقط.</p>
+            <div className="section-head"><div><h2 className="section-title">الإشعارات</h2><p className="section-subtitle">أهم الأحداث غير المقروءة فقط.</p></div><a className="badge" href="/dashboard/notifications">عرض الكل</a></div>
             <div className="list">
               {notifications.map((notification) => (
                 <div className="row-card" key={notification.notificationId}>
