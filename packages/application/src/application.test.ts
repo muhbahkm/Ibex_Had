@@ -24,9 +24,13 @@ import type {
   ListCustomerAccountsPortInput,
   ListMyCustomerAccountsPortInput,
   ListMyDisputesPortInput,
+  ListNotificationsPortInput,
   ListTransactionDocumentsPortInput,
+  MarkedNotificationRecord,
+  MarkNotificationReadPortInput,
   MyCustomerAccountRecord,
   MyDisputeRecord,
+  NotificationRecord,
   OpenAccountPortInput,
   OpenDisputePortInput,
   PostMovementPortInput,
@@ -49,6 +53,8 @@ class RecordingRepository implements ApplicationRepository {
   updateDisputeInput?: UpdateDisputePortInput;
   prepareDocumentInput?: PrepareTransactionDocumentPortInput;
   listDocumentsInput?: ListTransactionDocumentsPortInput;
+  listNotificationsInput?: ListNotificationsPortInput;
+  markNotificationInput?: MarkNotificationReadPortInput;
   movementInput?: PostMovementPortInput;
   reversalInput?: ReverseTransactionPortInput;
   listBusinessesInput?: ListBusinessesPortInput;
@@ -94,6 +100,14 @@ class RecordingRepository implements ApplicationRepository {
   listTransactionDocuments(input: ListTransactionDocumentsPortInput): Promise<readonly TransactionDocumentRecord[]> {
     this.listDocumentsInput = input;
     return Promise.resolve([]);
+  }
+  listNotifications(input: ListNotificationsPortInput): Promise<readonly NotificationRecord[]> {
+    this.listNotificationsInput = input;
+    return Promise.resolve([]);
+  }
+  markNotificationRead(input: MarkNotificationReadPortInput): Promise<MarkedNotificationRecord> {
+    this.markNotificationInput = input;
+    return Promise.resolve({ notificationId: input.notificationId, readAt: '2026-08-22T13:00:00+00:00' });
   }
   postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
     this.movementInput = input;
@@ -165,6 +179,16 @@ describe('IbexApplication', () => {
     expect(repository.listDocumentsInput).toEqual({ actorUserId: 'user-2', transactionId: 'tx-1' });
     await expect(application.prepareTransactionDocument({ actorUserId: 'user-1' }, { transactionId: 'tx-1', fileName: 'bad.exe', mimeType: 'application/octet-stream', sizeBytes: 20 })).rejects.toThrow('Unsupported document type');
     await expect(application.prepareTransactionDocument({ actorUserId: 'user-1' }, { transactionId: 'tx-1', fileName: 'large.pdf', mimeType: 'application/pdf', sizeBytes: 10 * 1024 * 1024 + 1 })).rejects.toThrow('Document size');
+  });
+
+  it('normalizes notification inbox reads and ownership-scoped read marks', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+    await application.listNotifications({ actorUserId: ' user-9 ' }, { unreadOnly: true });
+    await application.markNotificationRead({ actorUserId: ' user-9 ' }, { notificationId: ' notification-1 ' });
+    expect(repository.listNotificationsInput).toEqual({ actorUserId: 'user-9', unreadOnly: true, limit: 50 });
+    expect(repository.markNotificationInput).toEqual({ actorUserId: 'user-9', notificationId: 'notification-1' });
+    await expect(application.listNotifications({ actorUserId: 'user-9' }, { limit: 201 })).rejects.toThrow('Limit');
   });
 
   it('maps a sale to a debit using lossless bigint money', async () => {
