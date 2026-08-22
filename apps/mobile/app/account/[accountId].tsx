@@ -76,6 +76,7 @@ export default function AccountScreen() {
           <View style={styles.actions}>
             <View style={styles.actionItem}><Button onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'sale' } })}>بيع آجل</Button></View>
             <View style={styles.actionItem}><Button variant="secondary" onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'receipt' } })}>تسجيل قبض</Button></View>
+            <View style={styles.actionWide}><Button variant="ghost" onPress={() => router.push({ pathname: '/account/[accountId]/credit-terms', params: { accountId, displayName, currencyCode } })}>شروط الائتمان والاستحقاق</Button></View>
           </View>
         ) : null}
 
@@ -139,8 +140,9 @@ const styles = StyleSheet.create({
   balanceLabel: { color: theme.colors.accent, fontSize: theme.typography.styles.label.fontSize, fontWeight: '700', textAlign: 'right', writingDirection: 'rtl' },
   balanceValue: { color: theme.colors.text, fontSize: theme.typography.styles.display.fontSize, lineHeight: theme.typography.styles.display.lineHeight, fontWeight: '800', marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'ltr' },
   balanceHint: { color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },
-  actions: { flexDirection: 'row-reverse', gap: theme.spacing.sm },
-  actionItem: { flex: 1 },
+  actions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: theme.spacing.sm },
+  actionItem: { flex: 1, minWidth: 140 },
+  actionWide: { width: '100%' },
   section: { gap: theme.spacing.md },
   filters: { flexDirection: 'row-reverse', gap: theme.spacing.sm },
   filterButton: { minHeight: theme.layout.minTouchTarget, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.full, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surface },
