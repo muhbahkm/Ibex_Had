@@ -4,12 +4,20 @@ import type {
 } from '../../../packages/application/src/ports';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../src/features/auth/auth-context';
 import { ibex } from '../src/lib/ibex';
 import { formatMinorUnits } from '../src/lib/money-display';
-import { AppScreen, BrandMark, ErrorMessage, Heading, PrimaryButton } from '../src/ui/primitives';
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  InlineFeedback,
+  LoadingState,
+  Surface,
+} from '../src/ui/primitives';
+import { ProductShell } from '../src/ui/product-shell';
 import { theme } from '../src/ui/theme';
 
 function errorMessage(error: unknown): string {
@@ -26,12 +34,14 @@ export default function HomeScreen() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setLoading(true);
       setError(null);
+
       void Promise.all([
         ibex.listBusinesses(),
         ibex.listMyCustomerAccounts(),
@@ -49,10 +59,11 @@ export default function HomeScreen() {
         .finally(() => {
           if (active) setLoading(false);
         });
+
       return () => {
         active = false;
       };
-    }, []),
+    }, [refreshNonce]),
   );
 
   if (!session) return <Redirect href="/sign-in" />;
@@ -62,51 +73,92 @@ export default function HomeScreen() {
   };
 
   return (
-    <AppScreen>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <BrandMark />
-          <Pressable onPress={logout} style={styles.signOutButton}>
-            <Text style={styles.signOutText}>تسجيل الخروج</Text>
-          </Pressable>
+    <ProductShell
+      activeTab="home"
+      onHomePress={() => undefined}
+      onNotificationsPress={() => router.push('/notifications')}
+      subtitle={isPreviewMode ? 'وضع العرض الآمن' : 'مساحة العمل'}
+      title="IBEX HAD"
+      trailing={
+        <Pressable
+          accessibilityRole="button"
+          onPress={logout}
+          style={({ pressed }) => [styles.headerAction, pressed ? styles.pressed : null]}
+        >
+          <Text style={styles.headerActionText}>خروج</Text>
+        </Pressable>
+      }
+      unreadNotifications={unreadNotifications}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.hero}>
+          <Text style={styles.eyebrow}>مساحتك المالية</Text>
+          <Text style={styles.heroTitle}>كل ما تحتاجه للوصول إلى حساباتك وأنشطتك بسرعة.</Text>
+          <Text style={styles.heroBody}>
+            واجهة واحدة للحسابات، الأنشطة، الحركات المهمة والإشعارات، مع فصل واضح بين تجربة العميل وإدارة النشاط.
+          </Text>
         </View>
 
-        <Heading title="IBEX HAD" subtitle="حساباتك كعميل ومساحات العمل التي تديرها، في مكان واحد." />
-
         {isPreviewMode ? (
-          <View style={styles.previewCard}>
-            <Text style={styles.previewTitle}>وضع العرض الكامل</Text>
-            <Text style={styles.previewBody}>
-              أنت تتصفح بيانات تجريبية محلية فقط. يمكنك الآن فتح الأنشطة والعملاء والحسابات وتجربة البيع والقبض والعكس والإشعارات دون إرسال أي بيانات مالية إلى Supabase.
-            </Text>
-          </View>
+          <InlineFeedback tone="info">
+            وضع العرض يستخدم بيانات محلية تجريبية فقط، ولا يرسل أي حركة مالية إلى Supabase.
+          </InlineFeedback>
         ) : null}
 
-        <Pressable
-          onPress={() => router.push('/notifications')}
-          style={({ pressed }) => [styles.notificationCard, pressed ? styles.cardPressed : null]}
-        >
-          <View style={styles.notificationTextWrap}>
-            <Text style={styles.notificationTitle}>الإشعارات</Text>
-            <Text style={styles.notificationSubtitle}>الحركات وطلبات المراجعة المهمة.</Text>
+        <Surface variant="outlined">
+          <View style={styles.metricsRow}>
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{String(businesses.length)}</Text>
+              <Text style={styles.metricLabel}>نشاط</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{String(myAccounts.length)}</Text>
+              <Text style={styles.metricLabel}>حساب</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{String(unreadNotifications)}</Text>
+              <Text style={styles.metricLabel}>إشعار جديد</Text>
+            </View>
           </View>
-          <View style={[styles.notificationBadge, unreadNotifications === 0 ? styles.notificationBadgeMuted : null]}>
-            <Text style={[styles.notificationBadgeText, unreadNotifications === 0 ? styles.notificationBadgeTextMuted : null]}>
-              {unreadNotifications > 99 ? '99+' : String(unreadNotifications)}
-            </Text>
-          </View>
-        </Pressable>
+        </Surface>
 
-        <ErrorMessage message={error} />
-        {loading ? <ActivityIndicator style={styles.loader} color={theme.colors.primary} /> : null}
+        <View style={styles.quickActions}>
+          <Button onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</Button>
+          <Button onPress={() => router.push('/notifications')} variant="secondary">
+            فتح الإشعارات
+          </Button>
+        </View>
 
-        {myAccounts.length > 0 ? (
+        {error ? (
+          <ErrorState
+            message={error}
+            onRetry={() => setRefreshNonce((value) => value + 1)}
+            retryLabel="إعادة التحميل"
+          />
+        ) : null}
+
+        {loading ? <LoadingState label="جارٍ تحميل مساحة العمل" /> : null}
+
+        {!loading && !error && myAccounts.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>حساباتي</Text>
-            <Text style={styles.sectionSubtitle}>{isPreviewMode ? 'حسابات عميل تجريبية لعرض تجربة الطرف الآخر.' : 'الحسابات التي تم ربطها بهويتك الموثقة.'}</Text>
-            <View style={styles.list}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>حساباتي</Text>
+              <Text style={styles.sectionCaption}>
+                {isPreviewMode
+                  ? 'حسابات تجريبية لعرض تجربة العميل.'
+                  : 'الحسابات المرتبطة بهويتك الموثقة.'}
+              </Text>
+            </View>
+
+            <View style={styles.stack}>
               {myAccounts.map((account) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={account.accountId}
                   onPress={() =>
                     router.push({
@@ -122,88 +174,225 @@ export default function HomeScreen() {
                       },
                     })
                   }
-                  style={({ pressed }) => [styles.customerAccountCard, pressed ? styles.cardPressed : null]}
+                  style={({ pressed }) => [pressed ? styles.pressed : null]}
                 >
-                  <View style={styles.businessMeta}>
-                    <Text style={styles.businessName}>{account.businessName}</Text>
-                    <Text style={styles.businessCaption}>{account.currencyCode} · {account.accountStatus}</Text>
-                  </View>
-                  <Text style={styles.accountBalance}>{formatMinorUnits(account.balanceMinor, account.currencyCode)}</Text>
+                  <Surface variant="outlined">
+                    <View style={styles.accountRow}>
+                      <View style={styles.accountMeta}>
+                        <Text style={styles.cardTitle}>{account.businessName}</Text>
+                        <Text style={styles.cardCaption}>
+                          {account.currencyCode} · {account.accountStatus}
+                        </Text>
+                      </View>
+                      <Text style={styles.balance}>
+                        {formatMinorUnits(account.balanceMinor, account.currencyCode)}
+                      </Text>
+                    </View>
+                  </Surface>
                 </Pressable>
               ))}
             </View>
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>أنشطتي</Text>
-          <Text style={styles.sectionSubtitle}>المساحات التجارية التي تملكها أو تعمل ضمن فريقها.</Text>
-
-          {!loading && businesses.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>لا يوجد نشاط بعد</Text>
-              <Text style={styles.emptyBody}>يمكنك إنشاء نشاط، أو استخدام IBEX HAD كعميل فقط.</Text>
+        {!loading && !error ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>أنشطتي</Text>
+              <Text style={styles.sectionCaption}>المساحات التجارية التي تملكها أو تعمل ضمن فريقها.</Text>
             </View>
-          ) : null}
 
-          <View style={styles.list}>
-            {businesses.map((business) => (
-              <Pressable
-                key={business.businessId}
-                onPress={() =>
-                  router.push({
-                    pathname: '/business/[businessId]/customers',
-                    params: { businessId: business.businessId, businessName: business.name },
-                  })
-                }
-                style={({ pressed }) => [styles.businessCard, pressed ? styles.cardPressed : null]}
-              >
-                <View style={styles.businessMeta}>
-                  <Text style={styles.businessName}>{business.name}</Text>
-                  <Text style={styles.businessCaption}>{business.defaultCurrencyCode ?? 'بدون عملة افتراضية'} · {business.role}</Text>
-                </View>
-                <Text style={styles.chevron}>‹</Text>
-              </Pressable>
-            ))}
+            {businesses.length === 0 ? (
+              <EmptyState
+                message="يمكنك إنشاء نشاط جديد، أو الاستمرار في استخدام IBEX HAD كعميل فقط."
+                title="لا يوجد نشاط بعد"
+              />
+            ) : (
+              <View style={styles.stack}>
+                {businesses.map((business) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={business.businessId}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/business/[businessId]/customers',
+                        params: { businessId: business.businessId, businessName: business.name },
+                      })
+                    }
+                    style={({ pressed }) => [pressed ? styles.pressed : null]}
+                  >
+                    <Surface variant="outlined">
+                      <View style={styles.businessRow}>
+                        <View style={styles.accountMeta}>
+                          <Text style={styles.cardTitle}>{business.name}</Text>
+                          <Text style={styles.cardCaption}>
+                            {business.defaultCurrencyCode ?? 'بدون عملة افتراضية'} · {business.role}
+                          </Text>
+                        </View>
+                        <Text style={styles.chevron}>‹</Text>
+                      </View>
+                    </Surface>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
-
-          <PrimaryButton onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</PrimaryButton>
-        </View>
+        ) : null}
       </ScrollView>
-    </AppScreen>
+    </ProductShell>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { paddingBottom: theme.spacing.xl },
-  headerRow: { flexDirection: 'row-reverse', alignItems: 'flex-start', justifyContent: 'space-between' },
-  signOutButton: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
-  signOutText: { color: theme.colors.textMuted, fontSize: theme.typography.caption, fontWeight: '600', writingDirection: 'rtl' },
-  notificationCard: { minHeight: 76, padding: theme.spacing.lg, marginBottom: theme.spacing.xl, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
-  notificationTextWrap: { flex: 1 },
-  notificationTitle: { color: theme.colors.text, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
-  notificationSubtitle: { color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },
-  notificationBadge: { minWidth: 34, height: 34, paddingHorizontal: theme.spacing.sm, borderRadius: theme.radius.pill, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
-  notificationBadgeMuted: { backgroundColor: theme.colors.surfaceMuted },
-  notificationBadgeText: { color: theme.colors.primaryText, fontWeight: '800', writingDirection: 'ltr' },
-  notificationBadgeTextMuted: { color: theme.colors.textMuted },
-  previewCard: { padding: theme.spacing.lg, backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.spacing.xl },
-  previewTitle: { color: theme.colors.text, fontSize: theme.typography.body, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
-  previewBody: { color: theme.colors.textMuted, fontSize: theme.typography.caption, lineHeight: 21, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },
-  loader: { marginVertical: theme.spacing.lg },
-  section: { marginBottom: theme.spacing.xl },
-  sectionTitle: { color: theme.colors.text, fontSize: theme.typography.heading, fontWeight: '800', textAlign: 'right', writingDirection: 'rtl' },
-  sectionSubtitle: { color: theme.colors.textMuted, fontSize: theme.typography.caption, textAlign: 'right', writingDirection: 'rtl', marginTop: theme.spacing.xs, marginBottom: theme.spacing.md },
-  emptyCard: { padding: theme.spacing.lg, backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.lg, marginBottom: theme.spacing.lg },
-  emptyTitle: { color: theme.colors.text, fontSize: theme.typography.heading, fontWeight: '700', textAlign: 'right', writingDirection: 'rtl' },
-  emptyBody: { color: theme.colors.textMuted, fontSize: theme.typography.body, marginTop: theme.spacing.sm, textAlign: 'right', writingDirection: 'rtl' },
-  list: { gap: theme.spacing.sm, marginBottom: theme.spacing.lg },
-  businessCard: { minHeight: 82, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface, padding: theme.spacing.lg, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
-  customerAccountCard: { minHeight: 88, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface, padding: theme.spacing.lg, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md },
-  cardPressed: { opacity: 0.72 },
-  businessMeta: { flex: 1, gap: theme.spacing.xs },
-  businessName: { color: theme.colors.text, fontSize: theme.typography.heading, fontWeight: '700', textAlign: 'right', writingDirection: 'rtl' },
-  businessCaption: { color: theme.colors.textMuted, fontSize: theme.typography.caption, textAlign: 'right', writingDirection: 'rtl' },
-  accountBalance: { color: theme.colors.text, fontSize: theme.typography.body, fontWeight: '800', writingDirection: 'ltr' },
-  chevron: { color: theme.colors.textMuted, fontSize: 28, marginRight: theme.spacing.md },
+  scrollContent: {
+    gap: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
+  },
+  headerAction: {
+    minWidth: theme.layout.minTouchTarget,
+    minHeight: theme.layout.minTouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xs,
+  },
+  headerActionText: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.styles.label.fontSize,
+    lineHeight: theme.typography.styles.label.lineHeight,
+    fontWeight: theme.typography.styles.label.fontWeight,
+    writingDirection: 'rtl',
+  },
+  hero: {
+    gap: theme.spacing.xs,
+    paddingTop: theme.spacing.xs,
+  },
+  eyebrow: {
+    color: theme.colors.accent,
+    fontSize: theme.typography.styles.label.fontSize,
+    lineHeight: theme.typography.styles.label.lineHeight,
+    fontWeight: theme.typography.styles.label.fontWeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  heroTitle: {
+    color: theme.colors.text,
+    fontSize: theme.typography.styles.title.fontSize,
+    lineHeight: theme.typography.styles.title.lineHeight,
+    fontWeight: theme.typography.styles.title.fontWeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  heroBody: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.styles.body.fontSize,
+    lineHeight: theme.typography.styles.body.lineHeight,
+    fontWeight: theme.typography.styles.body.fontWeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  metricsRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'stretch',
+  },
+  metric: {
+    flex: 1,
+    minHeight: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xxs,
+  },
+  metricValue: {
+    color: theme.colors.text,
+    fontSize: theme.typography.styles.heading.fontSize,
+    lineHeight: theme.typography.styles.heading.lineHeight,
+    fontWeight: theme.typography.styles.heading.fontWeight,
+    writingDirection: 'ltr',
+  },
+  metricLabel: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.styles.caption.fontSize,
+    lineHeight: theme.typography.styles.caption.lineHeight,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  metricDivider: {
+    width: 1,
+    backgroundColor: theme.colors.border,
+  },
+  quickActions: {
+    gap: theme.spacing.sm,
+  },
+  section: {
+    gap: theme.spacing.md,
+  },
+  sectionHeader: {
+    gap: theme.spacing.xxs,
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: theme.typography.styles.heading.fontSize,
+    lineHeight: theme.typography.styles.heading.lineHeight,
+    fontWeight: theme.typography.styles.heading.fontWeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  sectionCaption: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.styles.caption.fontSize,
+    lineHeight: theme.typography.styles.caption.lineHeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  stack: {
+    gap: theme.spacing.sm,
+  },
+  accountRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    minHeight: theme.layout.minTouchTarget,
+  },
+  businessRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    minHeight: theme.layout.minTouchTarget,
+  },
+  accountMeta: {
+    flex: 1,
+    gap: theme.spacing.xxs,
+  },
+  cardTitle: {
+    color: theme.colors.text,
+    fontSize: theme.typography.styles.bodyStrong.fontSize,
+    lineHeight: theme.typography.styles.bodyStrong.lineHeight,
+    fontWeight: theme.typography.styles.bodyStrong.fontWeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  cardCaption: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.styles.caption.fontSize,
+    lineHeight: theme.typography.styles.caption.lineHeight,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  balance: {
+    color: theme.colors.text,
+    fontSize: theme.typography.styles.bodyStrong.fontSize,
+    lineHeight: theme.typography.styles.bodyStrong.lineHeight,
+    fontWeight: theme.typography.styles.bodyStrong.fontWeight,
+    writingDirection: 'ltr',
+  },
+  chevron: {
+    color: theme.colors.textMuted,
+    fontSize: 28,
+    writingDirection: 'ltr',
+  },
+  pressed: {
+    opacity: 0.72,
+  },
 });

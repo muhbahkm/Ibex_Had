@@ -75,7 +75,7 @@ Completed:
 Detailed command contract: `docs/ATOMIC_APPLICATION_COMMANDS.md` and `docs/CLIENT_RUNTIME.md`.
 
 ## Phase 4 — Mobile v1
-Status: IN PROGRESS; CORE MERCHANT/CUSTOMER VERTICAL SLICE IMPLEMENTED.
+Status: IN PROGRESS; CORE VERTICAL SLICE + PRODUCT EXPERIENCE FOUNDATION IMPLEMENTED.
 
 Completed:
 - Expo SDK 57 + React Native + TypeScript + Expo Router shell.
@@ -87,6 +87,11 @@ Completed:
 - Dispute/review screens for customer and merchant.
 - Transaction Documents v1 is merged through PR #21 with private attachment UX.
 - Notification Inbox v1 adds an inbox screen and unread badge while remaining independent from Push providers.
+- Figma-backed Product Experience foundation is implemented in code with centralized colors, spacing, radius, layout, motion, typography mapping, and elevation tokens.
+- Reusable mobile primitives now include Button, Surface, TextField, AppBar, BottomNavigation, Empty/Error/Loading/Skeleton states, and InlineFeedback while compatibility exports keep older screens stable during migration.
+- A shared ProductShell now owns SafeArea, the 64px app bar, the 72px bottom navigation, a 600px mobile content cap, RTL layout, and >=44px touch targets.
+- Home has been rebuilt around a clearer hierarchy: lightweight identity/header, account/activity/notification summary, prioritized actions, unified surfaces, and a visible-but-subordinate preview notice.
+- Notifications now run inside the same ProductShell and Preview Mode uses the safe local notification runtime rather than being redirected away from the inbox.
 - SDK 57 Development Build configuration is available with `expo-dev-client` and EAS profiles; actual cloud APK creation still requires a real Expo/EAS account session.
 - Expo dependency check, Expo Doctor, and Android bundle smoke test are enforced in CI.
 - SDK 57 SafeArea compatibility cleanup merged in PR #20.
