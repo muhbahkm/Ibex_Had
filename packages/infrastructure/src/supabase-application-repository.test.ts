@@ -87,6 +87,70 @@ describe('SupabaseApplicationRepository', () => {
     });
   });
 
+  it('maps prepared private document metadata and upload path', async () => {
+    const client = new RecordingRpcClient({
+      data: {
+        documentId: 'document-1',
+        transactionId: 'tx-1',
+        storageBucket: 'transaction-documents',
+        storagePath: 'businesses/business-1/transactions/tx-1/document-1.pdf',
+        fileName: 'فاتورة.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 4096,
+      },
+      error: null,
+    });
+    const repository = new SupabaseApplicationRepository(client);
+    const document = await repository.prepareTransactionDocument({
+      actorUserId: 'merchant-1',
+      transactionId: 'tx-1',
+      fileName: 'فاتورة.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 4096,
+      requestId: 'request-doc-1',
+    });
+    expect(client.functionName).toBe('app_prepare_transaction_document');
+    expect(client.args).toMatchObject({
+      p_actor_user_id: 'merchant-1',
+      p_transaction_id: 'tx-1',
+      p_file_name: 'فاتورة.pdf',
+      p_mime_type: 'application/pdf',
+      p_size_bytes: 4096,
+      p_request_id: 'request-doc-1',
+    });
+    expect(document.storagePath).toContain('/transactions/tx-1/');
+    expect(document.sizeBytes).toBe(4096);
+  });
+
+  it('maps uploaded transaction document rows for customer or merchant reads', async () => {
+    const client = new RecordingRpcClient({
+      data: [{
+        document_id: 'document-1',
+        transaction_id: 'tx-1',
+        storage_bucket: 'transaction-documents',
+        storage_path: 'businesses/business-1/transactions/tx-1/document-1.jpg',
+        file_name: 'إثبات.jpg',
+        mime_type: 'image/jpeg',
+        size_bytes: '8192',
+        created_at: '2026-08-22T12:00:00+00:00',
+      }],
+      error: null,
+    });
+    const repository = new SupabaseApplicationRepository(client);
+    const rows = await repository.listTransactionDocuments({ actorUserId: 'customer-user', transactionId: 'tx-1' });
+    expect(client.functionName).toBe('app_list_transaction_documents');
+    expect(rows).toEqual([{
+      documentId: 'document-1',
+      transactionId: 'tx-1',
+      storageBucket: 'transaction-documents',
+      storagePath: 'businesses/business-1/transactions/tx-1/document-1.jpg',
+      fileName: 'إثبات.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 8192,
+      createdAt: '2026-08-22T12:00:00+00:00',
+    }]);
+  });
+
   it('maps statement v2 rows including server-computed reversal eligibility', async () => {
     const client = new RecordingRpcClient({
       data: [{ transaction_id: 'tx-2', transaction_type: 'receipt', transaction_status: 'posted', occurred_at: '2026-08-22T10:00:00+00:00', description: 'قبض', effect_minor: '-400', balance_after_minor: '600', currency_code: 'YER', can_reverse: true }],
