@@ -16,9 +16,9 @@ import type { LedgerTransactionType } from '../../core/src/ledger.js';
 
 export interface RpcErrorLike {
   readonly message: string;
-  readonly code?: string;
-  readonly details?: string;
-  readonly hint?: string;
+  readonly code?: string | undefined;
+  readonly details?: string | undefined;
+  readonly hint?: string | undefined;
 }
 
 export interface RpcResponse<T = unknown> {
