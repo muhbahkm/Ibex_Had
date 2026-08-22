@@ -1,4 +1,4 @@
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -21,6 +21,10 @@ import {
 } from '../src/ui/primitives';
 import { theme } from '../src/ui/theme';
 
+function param(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   return 'تعذر إرسال رمز التحقق. حاول مرة أخرى.';
@@ -28,13 +32,19 @@ function errorMessage(error: unknown): string {
 
 export default function SignInScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ inviteToken?: string }>();
+  const inviteToken = param(params.inviteToken).toLowerCase();
   const { session, setPendingOnboarding } = useAuth();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (session) return <Redirect href="/home" />;
+  if (session) {
+    return inviteToken && /^[0-9a-f]{48}$/.test(inviteToken)
+      ? <Redirect href={{ pathname: '/invite/[token]', params: { token: inviteToken } }} />
+      : <Redirect href="/home" />;
+  }
 
   const submit = () => {
     if (loading) return;
@@ -43,7 +53,11 @@ export default function SignInScreen() {
     void requestPhoneOtp({ fullName, phone })
       .then((pending) => {
         setPendingOnboarding(pending);
-        router.push('/verify');
+        if (inviteToken && /^[0-9a-f]{48}$/.test(inviteToken)) {
+          router.push({ pathname: '/verify', params: { inviteToken } });
+        } else {
+          router.push('/verify');
+        }
       })
       .catch((requestError: unknown) => setError(errorMessage(requestError)))
       .finally(() => setLoading(false));
@@ -62,8 +76,10 @@ export default function SignInScreen() {
         >
           <BrandMark />
           <Heading
-            title="دفترك معك، بوضوح."
-            subtitle="أدخل اسمك ورقم جوالك. سنرسل رمز تحقق واحد لتأمين حسابك وربط دفاترك بك."
+            title={inviteToken ? 'سجل الدخول لفتح دعوتك' : 'دفترك معك، بوضوح.'}
+            subtitle={inviteToken
+              ? 'استخدم نفس رقم الجوال الذي سجله النشاط لك. بعد التحقق ستعود مباشرة إلى الدعوة.'
+              : 'أدخل اسمك ورقم جوالك. سنرسل رمز تحقق واحد لتأمين حسابك وربط دفاترك بك.'}
           />
 
           <View style={styles.form}>
@@ -96,8 +112,7 @@ export default function SignInScreen() {
           </View>
 
           <Text style={styles.privacy}>
-            لا نستخدم رقم الجوال كمفتاح مالي. هويتك الداخلية دائمة ويمكن تغيير الرقم لاحقًا
-            عبر مسار تحقق آمن.
+            لا نستخدم رقم الجوال كمفتاح مالي. هويتك الداخلية دائمة ويمكن تغيير الرقم لاحقًا عبر مسار تحقق آمن.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -107,20 +122,7 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: {
-    flexGrow: 1,
-    paddingBottom: theme.spacing.xl,
-  },
-  form: {
-    marginTop: theme.spacing.sm,
-  },
-  privacy: {
-    color: theme.colors.textMuted,
-    fontSize: theme.typography.caption,
-    lineHeight: 21,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    marginTop: 'auto',
-    paddingTop: theme.spacing.xl,
-  },
+  content: { flexGrow: 1, paddingBottom: theme.spacing.xl },
+  form: { marginTop: theme.spacing.sm },
+  privacy: { color: theme.colors.textMuted, fontSize: theme.typography.caption, lineHeight: 21, textAlign: 'right', writingDirection: 'rtl', marginTop: 'auto', paddingTop: theme.spacing.xl },
 });
