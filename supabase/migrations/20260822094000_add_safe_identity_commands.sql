@@ -150,20 +150,24 @@ $$;
 -- in private implementations that re-check auth.uid() and verified Auth phone state.
 create or replace function public.complete_profile(p_full_name text)
 returns public.profiles
-language sql
+language plpgsql
 security invoker
 set search_path = ''
 as $$
-  select private.complete_profile_impl(p_full_name);
+begin
+  return private.complete_profile_impl(p_full_name);
+end;
 $$;
 
 create or replace function public.claim_customer_identity(p_customer_identity_id uuid)
 returns uuid
-language sql
+language plpgsql
 security invoker
 set search_path = ''
 as $$
-  select private.claim_customer_identity_impl(p_customer_identity_id);
+begin
+  return private.claim_customer_identity_impl(p_customer_identity_id);
+end;
 $$;
 
 revoke all on function private.complete_profile_impl(text) from public, anon, authenticated;
