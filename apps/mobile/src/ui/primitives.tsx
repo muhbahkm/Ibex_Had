@@ -2,13 +2,13 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   type TextInputProps,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { theme } from './theme';
 
