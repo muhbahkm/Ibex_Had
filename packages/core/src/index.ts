@@ -1,3 +1,4 @@
+export * from './identity.js';
 export * from './ledger.js';
 
 export const IBEX_HAD_CORE_VERSION = '0.0.0' as const;
