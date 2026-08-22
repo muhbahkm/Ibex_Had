@@ -168,6 +168,7 @@ export function AccountStatementClient({
                 </div>
                 <div className="statement-actions">
                   <div className={`amount ${entry.effectMinor < 0n ? 'amount-credit' : 'amount-debit'}`}>{formatMinorUnits(entry.effectMinor, entry.currencyCode)}</div>
+                  <a className="button ghost compact-button" href={`/dashboard/documents/${entry.transactionId}`}>المستندات</a>
                   {entry.canReverse ? <button className="button ghost compact-button" disabled={reversingId === entry.transactionId} onClick={() => void reverse(entry.transactionId)}>{reversingId === entry.transactionId ? 'جارٍ العكس…' : 'عكس الحركة'}</button> : null}
                 </div>
               </div>

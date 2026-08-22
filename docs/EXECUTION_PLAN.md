@@ -98,7 +98,7 @@ Current device-testing note:
 Exit criteria: a real authenticated merchant posts a transaction and a real customer sees the exact movement/balance/document on a physical device.
 
 ## Phase 5 — Merchant Web v1
-Status: CORE MERCHANT VERTICAL SLICE IMPLEMENTED; LIVE AUTHENTICATED BROWSER VERIFICATION REMAINS.
+Status: CORE OPERATIONAL WORKFLOWS IMPLEMENTED; LIVE AUTHENTICATED BROWSER VERIFICATION REMAINS.
 
 Completed:
 - Next.js 16.3 + React 19 + TypeScript App Router foundation.
@@ -110,34 +110,38 @@ Completed:
 - Customer search and financial views remain scoped through existing authorized read models rather than direct table reads.
 - Sale/receipt inputs use the shared Core major→minor conversion; money stays lossless across the JavaScript boundary.
 - Reversal is offered only when the statement read model returns `canReverse=true`; the command creates a separate reversal transaction and never edits posted history.
+- Transaction documents are available from statement movements using the existing Prepare → private Storage upload → signed URL contract; the client cannot choose the canonical storage path.
+- Merchant dispute/review inbox uses the existing read/update commands; changing review status does not mutate ledger history or balance.
+- Durable notification inbox is available on Web with ownership-scoped mark-as-read and a dashboard unread entry point.
 - Next.js production build is a permanent CI gate alongside the Mobile/Expo gates.
 - NodeNext `.js` source imports are resolved only at the Webpack integration boundary via `resolve.extensionAlias`; the shared packages remain strict NodeNext.
 
 Remaining:
 - Verify the full flow in a real authenticated browser session against Supabase Phone Auth once live OTP is enabled.
-- Add transaction-document UX and dispute/inbox management to Merchant Web where it improves daily workflow.
 - Add higher-density search/filter/reporting only after the core workflow is validated with real usage.
+- Decide Web deployment/runtime after authenticated browser validation; do not introduce a second backend.
 
 Exit criteria: merchant daily workflows on web produce identical financial outcomes to mobile under a real authenticated session.
 
 ## Phase 6 — Documents, disputes, notifications
-Status: BACKEND/CLIENT CORE COMPLETE; PHYSICAL-DEVICE DELIVERY VALIDATION REMAINS.
+Status: BACKEND + MOBILE + MERCHANT WEB CORE COMPLETE; LIVE CHANNEL VALIDATION REMAINS.
 
 Completed:
 - Dispute/review workflow is implemented and production-verified without mutating ledger history.
 - Transaction Documents v1 uses a private Supabase Storage bucket with a Prepare → Upload → Visible contract.
 - Server generates the canonical storage path; client cannot choose another business/transaction scope.
 - Upload is restricted to active owner/manager/cashier; customer reads are restricted to already-accessible transactions.
-- No public file URLs; mobile opens documents through short-lived signed URLs.
+- No public file URLs; Mobile and Web open documents through short-lived signed URLs.
 - PDF/JPEG/PNG/WEBP only, maximum 10 MiB.
 - Durable Notification Inbox v1 is implemented independently from Expo Push/FCM/APNs/SMS.
 - Notifications are generated only for high-value events: posted financial movement to a claimed customer, dispute opened to owner/managers, dispute resolved/rejected to the customer.
 - RLS/read-mark ownership was production-verified; anon cannot execute inbox RPCs and authenticated clients cannot directly mutate notification rows.
+- Merchant Web consumes the same document, dispute, and notification contracts without additional DDL or direct table writes.
 - Security Advisor is clean after the notification migration; Performance Advisor remains INFO-only unused-index notices.
 
 Remaining:
 - Complete physical-device authenticated document upload/download verification.
-- Complete live authenticated notification UX verification on device.
+- Complete live authenticated notification UX verification on device and browser.
 - Add Push delivery only as a future channel over the durable inbox/outbox boundary; Push must never become the notification source of truth.
 
 Detailed contracts: `docs/TRANSACTION_DOCUMENTS.md` and `docs/NOTIFICATION_INBOX.md`.
@@ -187,4 +191,4 @@ A feature/change is complete only when applicable items are satisfied:
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Validate Merchant Web and Mobile against real authenticated sessions once +967 Phone OTP is enabled, while completing the project-owned SDK 57 Development Build installation path. The next product-facing Web extensions are transaction documents and dispute/inbox workflows; no new financial logic should be introduced outside the shared Application/Domain Core.
+The main product blocker is now live authenticated validation rather than missing core screens: enable real +967 Phone OTP, then validate Mobile and Merchant Web end-to-end against the same Supabase project, including financial posting, reversal, private documents, disputes, and notifications. In parallel, complete the project-owned SDK 57 Development Build installation path without weakening the existing authorization model.
