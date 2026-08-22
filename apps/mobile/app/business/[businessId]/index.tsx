@@ -95,7 +95,8 @@ export default function BusinessWorkspaceScreen() {
             ]} />
 
             <View style={styles.actions}>
-              <Button onPress={() => router.push({ pathname: '/business/[businessId]/customer/new', params: { businessId, businessName } })}>إضافة عميل</Button>
+              <Button onPress={() => router.push({ pathname: '/business/[businessId]/collections', params: { businessId, businessName } })}>متابعة التحصيل والذمم</Button>
+              <Button onPress={() => router.push({ pathname: '/business/[businessId]/customer/new', params: { businessId, businessName } })} variant="secondary">إضافة عميل</Button>
               <Button onPress={() => router.push({ pathname: '/business/[businessId]/customers', params: { businessId, businessName } })} variant="secondary">فتح العملاء والحسابات</Button>
               <Button onPress={() => router.push({ pathname: '/business/[businessId]/disputes', params: { businessId, businessName } })} variant="ghost">طلبات المراجعة</Button>
             </View>
@@ -143,7 +144,7 @@ export default function BusinessWorkspaceScreen() {
 
             <Surface variant="tinted">
               <Text style={styles.noteTitle}>مبدأ مالي ثابت</Text>
-              <Text style={styles.noteBody}>لا نعرض مجموع أرصدة YER وSAR وUSD في رقم واحد. أي Dashboard مالي لاحق سيبنى على read model خلفي صريح يحافظ على فصل العملات.</Text>
+              <Text style={styles.noteBody}>لا نعرض مجموع أرصدة YER وSAR وUSD في رقم واحد. أي Dashboard مالي يبنى على read model صريح يحافظ على فصل العملات، وشاشة التحصيل الجديدة تطبق هذا المبدأ فعليًا.</Text>
             </Surface>
           </>
         ) : null}
