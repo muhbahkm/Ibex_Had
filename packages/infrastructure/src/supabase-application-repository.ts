@@ -22,14 +22,18 @@ import type {
   ListCustomerAccountsPortInput,
   ListMyCustomerAccountsPortInput,
   ListMyDisputesPortInput,
+  ListTransactionDocumentsPortInput,
   MyCustomerAccountRecord,
   MyDisputeRecord,
   OpenAccountPortInput,
   OpenDisputePortInput,
   PostMovementPortInput,
   PostedMovementRecord,
+  PreparedTransactionDocumentRecord,
+  PrepareTransactionDocumentPortInput,
   ReverseTransactionPortInput,
   StatementEntryRecord,
+  TransactionDocumentRecord,
   UpdateDisputePortInput,
 } from '../../application/src/ports.js';
 import type { LedgerTransactionType } from '../../core/src/ledger.js';
@@ -58,6 +62,7 @@ function expectString(value: unknown, field: string, operation: string): string 
 function expectInteger(value: unknown, field: string, operation: string): number { if (typeof value !== 'number' || !Number.isInteger(value)) throw new InfrastructureError(operation, { message: `RPC payload field ${field} is not an integer` }); return value; }
 function expectBoolean(value: unknown, field: string, operation: string): boolean { if (typeof value !== 'boolean') throw new InfrastructureError(operation, { message: `RPC payload field ${field} is not a boolean` }); return value; }
 function parseBigInt(value: unknown, field: string, operation: string): bigint { if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'bigint') throw new InfrastructureError(operation, { message: `RPC payload field ${field} is not an integer` }); try { return BigInt(value); } catch { throw new InfrastructureError(operation, { message: `RPC payload field ${field} is not a valid bigint` }); } }
+function parseSafeInteger(value: unknown, field: string, operation: string): number { const parsed = parseBigInt(value, field, operation); const numberValue = Number(parsed); if (!Number.isSafeInteger(numberValue)) throw new InfrastructureError(operation, { message: `RPC payload field ${field} exceeds the safe integer range` }); return numberValue; }
 function nullableArg(value: string | undefined): string | null { return value ?? null; }
 function parseDisputeStatus(value: unknown, field: string, operation: string): DisputeStatus {
   const status = expectString(value, field, operation);
@@ -103,6 +108,36 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
     const operation = 'app_update_dispute';
     const row = expectObject(await this.call(operation, { p_actor_user_id: input.actorUserId, p_dispute_id: input.disputeId, p_status: input.status, p_resolution_note: nullableArg(input.resolutionNote), p_request_id: nullableArg(input.requestId) }), operation);
     return this.parseDispute(row, operation);
+  }
+  async prepareTransactionDocument(input: PrepareTransactionDocumentPortInput): Promise<PreparedTransactionDocumentRecord> {
+    const operation = 'app_prepare_transaction_document';
+    const row = expectObject(await this.call(operation, { p_actor_user_id: input.actorUserId, p_transaction_id: input.transactionId, p_file_name: input.fileName, p_mime_type: input.mimeType, p_size_bytes: input.sizeBytes, p_request_id: nullableArg(input.requestId) }), operation);
+    return {
+      documentId: expectString(row.documentId, 'documentId', operation),
+      transactionId: expectString(row.transactionId, 'transactionId', operation),
+      storageBucket: expectString(row.storageBucket, 'storageBucket', operation),
+      storagePath: expectString(row.storagePath, 'storagePath', operation),
+      fileName: expectString(row.fileName, 'fileName', operation),
+      mimeType: expectString(row.mimeType, 'mimeType', operation),
+      sizeBytes: parseSafeInteger(row.sizeBytes, 'sizeBytes', operation),
+    };
+  }
+  async listTransactionDocuments(input: ListTransactionDocumentsPortInput): Promise<readonly TransactionDocumentRecord[]> {
+    const operation = 'app_list_transaction_documents';
+    const payload = expectArray(await this.call(operation, { p_actor_user_id: input.actorUserId, p_transaction_id: input.transactionId }), operation);
+    return payload.map((value, index) => {
+      const row = expectObject(value, operation);
+      return {
+        documentId: expectString(row.document_id, `rows[${index}].document_id`, operation),
+        transactionId: expectString(row.transaction_id, `rows[${index}].transaction_id`, operation),
+        storageBucket: expectString(row.storage_bucket, `rows[${index}].storage_bucket`, operation),
+        storagePath: expectString(row.storage_path, `rows[${index}].storage_path`, operation),
+        fileName: expectString(row.file_name, `rows[${index}].file_name`, operation),
+        mimeType: expectString(row.mime_type, `rows[${index}].mime_type`, operation),
+        sizeBytes: parseSafeInteger(row.size_bytes, `rows[${index}].size_bytes`, operation),
+        createdAt: expectString(row.created_at, `rows[${index}].created_at`, operation),
+      } satisfies TransactionDocumentRecord;
+    });
   }
   async postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
     const operation = 'app_post_movement';

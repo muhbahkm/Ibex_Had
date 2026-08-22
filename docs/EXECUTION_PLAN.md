@@ -14,144 +14,136 @@ Ship a production-grade MVP that proves the core Shared Customer Ledger use case
 6. Every delivery ends with tests, verification, and relevant security/performance checks.
 
 ## Phase 0 — Foundation and governance
-Status: technical foundation complete; GitHub account-level hardening pending.
+Status: TECHNICAL FOUNDATION COMPLETE; GITHUB ACCOUNT-LEVEL HARDENING PENDING.
 
 Completed:
 - Supabase Mumbai project `Ibex_Had v1` is the only active backend target.
-- GitHub is established as source of truth for code and migrations.
-- Notion is established as source of truth for product/architecture decisions.
-- PR-based delivery flow is established and exercised.
-- TypeScript/pnpm workspace foundation is committed.
-- Strict TypeScript configuration, ESLint, Vitest, repository hygiene, PR template, CODEOWNERS, environment template, and engineering conventions are committed.
-- GitHub Actions CI runs lint, typecheck, and tests and is green.
+- GitHub is source of truth for code/migrations; Notion is product/architecture decision truth.
+- PR-based delivery, strict TypeScript, ESLint, Vitest, repository hygiene, PR template, CODEOWNERS, and environment conventions are established.
+- CI now runs lint, typecheck, tests, Expo dependency validation, Expo Doctor, and a real Android Metro/Expo bundle smoke test.
 
 Administrative hardening still required in GitHub settings:
-- Change repository visibility from Public to Private before sensitive implementation details/secrets/infrastructure are introduced.
-- Enable branch protection/rules for `main`, requiring pull requests and the CI status check before merge.
-
-These settings are tracked as owner-level repository administration because the connected GitHub tool surface does not expose repository visibility or branch-protection mutation.
+- Change repository visibility from Public to Private.
+- Protect `main` and require PR + CI before merge.
 
 ## Phase 1 — Ledger core and Schema v1
-Status: COMPLETE.
+Status: COMPLETE AND PRODUCTION-VERIFIED.
 
 Completed:
-- Schema v1 and financial invariants frozen for the MVP core.
-- Money representation uses integer minor units (`bigint` in PostgreSQL); floating-point money is prohibited.
-- Balance convention frozen: positive = customer owes business; negative = business owes customer.
-- Transaction lifecycle and explicit reversal behavior enforced in PostgreSQL.
-- Identity, business, membership, customer, account, transaction, entry, document, dispute, integration, and audit structures deployed.
-- Idempotency and posted-transaction immutability enforced.
-- Three repository migrations deployed to Supabase Mumbai in order: ledger core, API-grant hardening, FK covering indexes.
-- RLS enabled on all 15 public application tables.
-- End-user financial writes are not directly granted; writes go through narrow Application/Domain commands.
-- `customer_account_balances` uses `security_invoker=true` and remains a derived view, not financial truth.
-- TypeScript ledger invariant tests pass in CI.
-- A temporary transactional database verification proved deterministic balances, immutable entries/posted transactions, and exact reversal behavior; all verification data was rolled back.
-- Supabase Security Advisor has no findings.
-- All initial unindexed-FK Performance Advisor findings were resolved. Remaining `unused_index` notices are INFO-only and expected before real workload exists.
+- Money uses PostgreSQL `bigint` minor units; floating-point money is prohibited.
+- Positive balance means customer owes business; negative means business owes customer.
+- Posted financial history and entries are immutable; corrections use explicit reversal.
+- Core identity/business/customer/account/ledger/document/dispute/integration/audit schema is deployed with RLS.
+- Client financial writes are denied; narrow application commands own mutations.
+- Deterministic balance reconstruction, idempotency, transaction lifecycle, reversal, FK coverage, and audit immutability were verified transactionally with rollback.
+- Security Advisor is clean; remaining Performance Advisor notices are INFO-level unused indexes expected before real workload.
 
-Detailed verification is recorded in `docs/LEDGER_V1.md`.
-
-Exit criteria met: balances were rebuilt deterministically from posted ledger entries without trusting cached balances.
+Detailed verification: `docs/LEDGER_V1.md`.
 
 ## Phase 2 — Identity and onboarding
-Status: BACKEND CORE COMPLETE; LIVE OTP DELIVERY AND MOBILE SESSION WORK PENDING.
+Status: CORE IMPLEMENTED; LIVE OTP DELIVERY DEFERRED FOR CURRENT DEVICE PREVIEW.
 
 Completed:
-- Primary UX contract fixed as name + phone number + OTP only.
-- UUID remains the permanent internal identity; phone is mutable and never a financial key.
-- Shared name normalization and Yemen-first E.164 phone normalization are implemented and unit-tested.
-- Migration `add_safe_identity_commands` is deployed to Supabase Mumbai.
-- `complete_profile(full_name)` derives verified phone state from `auth.users`; clients cannot submit or forge phone verification fields.
-- `claim_customer_identity(id)` claims one explicit identity only when its E.164 phone matches the caller's verified Auth phone; same-user retries are idempotent.
-- Broad authenticated writes to profile/customer tables remain disabled.
-- Onboarding/claim mutations create immutable audit events.
-- Database verification transaction proved profile completion, successful claim, idempotent retry, and rejection of a mismatched phone; test data was rolled back.
-- Function privileges verified: `authenticated` can execute the narrow commands; `anon` cannot.
-- Supabase Security Advisor has no findings after the identity migration.
-- Phone-change behavior is documented: change/verify in Auth first, then resynchronize profile; no silent customer-identity merge.
+- Primary production identity contract remains name + mobile + OTP.
+- UUID is permanent identity; phone is mutable and never a financial key.
+- Yemen-first E.164 normalization, safe `complete_profile`, explicit customer-identity claim, audit trail, and secure session persistence are implemented.
+- Mobile Supabase session composition and SecureStore persistence are implemented.
+- Phone OTP client flow, Arabic error handling, rate-limit messaging, and Yemen/Twilio production runbook are implemented.
+- A temporary `EXPO_PUBLIC_AUTH_MODE=preview` exists for device/UI testing without SMS. It creates only a local preview session and intentionally cannot access real financial data.
 
-Pending external/mobile work:
-- Enable Phone Auth in hosted Supabase settings.
-- Select/configure an SMS provider with proven Yemen delivery.
-- Test real OTP delivery and phone-change OTP.
-- Review OTP rate limits and abuse controls.
-- Implement secure session persistence in the Expo mobile app when the mobile shell is introduced.
+Still required before production launch:
+- Enable hosted Phone Auth and configure a real SMS/Verify provider.
+- Prove delivery to a real +967 number, phone-change verification, and abuse/rate-limit controls.
+- Remove/disable preview auth for release builds.
 
-Detailed flow and security contract: `docs/IDENTITY_ONBOARDING.md`.
-
-Exit criteria remain open until a real Yemeni phone completes OTP login and the mobile session can be restored securely.
+Detailed flow: `docs/IDENTITY_ONBOARDING.md` and `docs/PHONE_AUTH_RUNBOOK.md`.
 
 ## Phase 3 — Application and domain core
-Status: APPLICATION CORE + ATOMIC SUPABASE ADAPTER DEPLOYED AND PRODUCTION-VERIFIED; FIRST REAL CLIENT BINDING NEXT.
+Status: COMPLETE AND BOUND TO A REAL SUPABASE SESSION CLIENT.
 
 Completed:
-- `IbexApplication` is provider/framework independent and shared by future Mobile, Web, ChatGPT, and integrations.
-- Money crosses JavaScript boundaries losslessly: decimal integer strings at external boundaries and `bigint` internally; JavaScript `number` is prohibited for money.
-- Core use cases implemented: CreateBusiness, CreateCustomer, OpenCustomerAccount, PostSale, PostReceipt, ReverseTransaction, and GetStatement.
-- `ApplicationRepository` ports isolate business/application logic from Supabase and UI frameworks.
-- `SupabaseApplicationRepository` maps those ports to narrow RPC commands and preserves PostgreSQL `bigint` values losslessly.
-- Migration `add_atomic_application_commands` is deployed to Supabase Mumbai.
-- Narrow RPC commands exist for business/customer/account creation, movement posting, reversal, and statement reconstruction.
-- Posting is atomic: actor/role/scope/currency/idempotency validation -> draft transaction -> entry -> posted transaction -> audit event -> deterministic balance rebuild. Any failure rolls the statement back.
-- Reversal is restricted to owner/manager, locks the original, posts exact opposite entries, then marks the original reversed.
-- Idempotency is production-verified: exact retries return the same transaction; reusing a key with a conflicting financial payload is rejected; repeated reversal returns the existing reversal.
-- Production verification inside a transaction proved sale 1000 -> balance 1000, receipt 400 -> balance 600, deterministic statement, reversal of sale -> balance -400; all verification data was rolled back.
-- Authorization surface verified: authenticated users can execute the narrow posting/reversal RPCs; anon cannot; authenticated still cannot directly insert into `ledger_transactions`, `ledger_entries`, or `audit_events`.
-- PR #8 (Application Core) and PR #9 (atomic adapter/RPCs) passed lint, typecheck, and tests and were squash-merged.
-- Supabase Security Advisor has no findings. Performance Advisor only reports expected INFO-level unused indexes before real workload exists.
+- `IbexApplication` is provider/framework independent and shared by Mobile/Web/future ChatGPT/integrations.
+- Money crosses JavaScript boundaries losslessly as decimal integer strings → `bigint`.
+- `ApplicationRepository` ports isolate use cases from Supabase and UI frameworks.
+- `SupabaseApplicationRepository` maps narrow RPCs and validates returned payloads.
+- `IbexSessionApplication` derives actor identity from the authenticated Supabase session; callers cannot supply their own actor id.
+- Atomic commands cover business/customer/account creation, posting sale/receipt, reversal, statement, read models, customer invitations, disputes, and transaction documents.
+- Production verification proved idempotency, exact reversal, deterministic statements, merchant/customer isolation, invitation claim constraints, dispute behavior, and document preparation constraints.
 
-Detailed command contract: `docs/ATOMIC_APPLICATION_COMMANDS.md`.
-
-Remaining before Phase 3 closes:
-- Bind a real Supabase client/session to `SupabaseApplicationRepository` through a single composition root.
-- Add an authenticated integration harness that exercises the Application layer through the client boundary.
-- Add only the additional MVP use cases required by the first UI; do not duplicate financial logic in clients.
-
-Exit criterion is materially met for provider-independent and database layers; Phase 3 closes after the same `IbexApplication` runs through the first real client binding without UI-specific financial logic.
+Detailed command contract: `docs/ATOMIC_APPLICATION_COMMANDS.md` and `docs/CLIENT_RUNTIME.md`.
 
 ## Phase 4 — Mobile v1
-- React Native + Expo + TypeScript.
-- Arabic-first, RTL, mobile-first, Latin digits 0-9.
-- Onboarding/authentication.
-- Merchant mode: create business, add customer, add movement, statement, balance, invitation.
-- Customer mode: accounts, account detail, movement history, documents, review request.
-- Deep Links / Universal Links.
+Status: IN PROGRESS; CORE MERCHANT/CUSTOMER VERTICAL SLICE IMPLEMENTED.
 
-Exit criteria: end-to-end journey works: merchant adds customer and posts transaction -> customer signs in and sees the correct movement and resulting balance.
+Completed:
+- Expo SDK 57 + React Native + TypeScript + Expo Router shell.
+- Arabic-first RTL UI and Latin-number display conventions.
+- Supabase client, secure session storage, real Session → Application → Repository → RPC composition.
+- Merchant flow: create business → add/search customer → open currency account → post sale/receipt → statement → balance → reverse eligible transaction.
+- Customer flow: `حساباتي` → account statement → balance → request review/dispute.
+- Secure customer invitations and deep-link claim flow.
+- Dispute/review screens for customer and merchant.
+- Transaction-document screen and private attachment flow are being completed in PR #21.
+- Expo dependency check, Expo Doctor, and Android bundle smoke test are enforced in CI.
+- SDK 57 SafeArea compatibility cleanup merged in PR #20.
+
+Current device-testing note:
+- The Google Play Expo Go client available on the test phone reports SDK 54 support while the project uses SDK 57. This is a test-host compatibility issue, not an application bundle failure.
+- Continue device testing with an SDK 57-compatible Expo Go binary or a project Development Build.
+
+Exit criteria: a real authenticated merchant posts a transaction and a real customer sees the exact movement/balance/document on a physical device.
 
 ## Phase 5 — Merchant Web v1
-- Next.js + TypeScript.
-- Efficient customer and transaction management for larger screens.
-- Search, filters, statements, limited import when justified.
-- Same domain/API contracts as mobile.
+Status: NOT STARTED.
 
-Exit criteria: merchant can perform daily workflows on web with identical financial outcomes to mobile.
+Planned:
+- Next.js + TypeScript.
+- Efficient customer/transaction management, search, filters, statements, and limited imports where justified.
+- Same Application/API contracts as mobile; no web-specific financial logic.
+
+Exit criteria: merchant daily workflows on web produce identical financial outcomes to mobile.
 
 ## Phase 6 — Documents, disputes, notifications
-- Supabase Storage with strict access policies.
-- Transaction-document linking.
-- Dispute/review workflow that never silently mutates ledger history.
-- Useful, non-noisy notifications.
+Status: IN PROGRESS.
 
-Exit criteria: every movement is explainable/reviewable and documents cannot leak across customers or businesses.
+Completed/in implementation:
+- Dispute/review workflow is implemented and production-verified without mutating ledger history.
+- Transaction Documents v1 uses a private Supabase Storage bucket with a Prepare → Upload → Visible contract.
+- Server generates the canonical storage path; client cannot choose another business/transaction scope.
+- Upload is restricted to active owner/manager/cashier; customer reads are restricted to already-accessible transactions.
+- No public file URLs; mobile opens documents through short-lived signed URLs.
+- PDF/JPEG/PNG/WEBP only, maximum 10 MiB.
+
+Remaining:
+- Complete physical-device authenticated upload/download verification.
+- Add useful, non-noisy notification delivery after the core device flow is stable.
+
+Detailed document contract: `docs/TRANSACTION_DOCUMENTS.md`.
 
 ## Phase 7 — Security, quality, production readiness
-- Unit, integration, and E2E coverage.
-- RLS role/ownership test matrix.
-- Supabase Security and Performance Advisors after material DDL changes.
-- Structured logs, monitoring, error tracking.
-- Backup/restore rehearsal.
-- Auth/API rate limits and abuse controls.
-- Secrets, CI/CD, and release review.
+Status: PARTIALLY ACTIVE THROUGHOUT DEVELOPMENT.
 
-Exit criteria: no critical findings, restore procedure tested, critical flows covered by tests.
+Already active:
+- Unit/integration contract tests and CI gates.
+- RLS/privilege verification after material backend changes.
+- Supabase Security/Performance Advisors after DDL changes.
+- Android bundle smoke test.
+
+Still required:
+- Full RLS role/ownership matrix and mobile E2E coverage.
+- Structured logs, monitoring/error tracking.
+- Backup/restore rehearsal.
+- Final Auth/API rate limits, abuse controls, secrets/release review.
+
+Exit criteria: no critical findings, restore procedure tested, critical flows covered end to end.
 
 ## Phase 8 — Beta and first release
+Status: NOT STARTED.
+
 - Limited real-business beta.
-- Track active ledgers, customers, weekly movements, customer self-service access, reduced manual PDF/WhatsApp statement requests, and retention.
+- Track active ledgers, customers, weekly movements, customer self-service usage, reduced manual statement requests, and retention.
 - Fix beta issues before scope expansion.
-- Prepare Google Play/App Store, privacy policy, terms, and release assets.
+- Prepare Play/App Store, privacy policy, terms, and release assets.
 
 Exit criteria: real businesses use IBEX HAD weekly and customers return to view balances without manual merchant intervention.
 
@@ -166,11 +158,11 @@ Only after usage validates the core product:
 ## Definition of Done
 A feature/change is complete only when applicable items are satisfied:
 - Code and migrations are committed in GitHub.
-- Tests pass.
+- Tests and CI gates pass.
 - Supabase change is applied and verified for backend/DB work.
 - Security/performance checks run when relevant.
-- Notion is updated with the decision/status.
+- Notion is updated with decision/status.
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Create the real Supabase client composition root and authenticated integration boundary so the first Mobile/Web client can instantiate the same `IbexApplication` without owning any financial logic. Live OTP closure remains a parallel external-provider task.
+Close Transaction Documents v1 through production verification and merge PR #21, then continue physical-device Mobile v1 validation with an SDK 57-compatible test host/Development Build. In parallel, keep live +967 OTP as a production-auth task rather than weakening the financial authorization boundary.

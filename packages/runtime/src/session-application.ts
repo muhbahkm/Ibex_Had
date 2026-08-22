@@ -37,6 +37,8 @@ export class IbexSessionApplication {
   async claimCustomerInvite(input: Parameters<IbexApplication['claimCustomerInvite']>[1], requestId?: string) { return this.application.claimCustomerInvite(await this.context(requestId), input); }
   async openDispute(input: Parameters<IbexApplication['openDispute']>[1], requestId?: string) { return this.application.openDispute(await this.context(requestId), input); }
   async updateDispute(input: Parameters<IbexApplication['updateDispute']>[1], requestId?: string) { return this.application.updateDispute(await this.context(requestId), input); }
+  async prepareTransactionDocument(input: Parameters<IbexApplication['prepareTransactionDocument']>[1], requestId?: string) { return this.application.prepareTransactionDocument(await this.context(requestId), input); }
+  async listTransactionDocuments(input: Parameters<IbexApplication['listTransactionDocuments']>[1], requestId?: string) { return this.application.listTransactionDocuments(await this.context(requestId), input); }
   async postSale(input: Parameters<IbexApplication['postSale']>[1], requestId?: string) { return this.application.postSale(await this.context(requestId), input); }
   async postReceipt(input: Parameters<IbexApplication['postReceipt']>[1], requestId?: string) { return this.application.postReceipt(await this.context(requestId), input); }
   async reverseTransaction(input: Parameters<IbexApplication['reverseTransaction']>[1], requestId?: string) { return this.application.reverseTransaction(await this.context(requestId), input); }
