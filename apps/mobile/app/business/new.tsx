@@ -4,13 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/features/auth/auth-context';
 import { ibex } from '../../src/lib/ibex';
-import {
-  AppScreen,
-  ErrorMessage,
-  Field,
-  Heading,
-  PrimaryButton,
-} from '../../src/ui/primitives';
+import { AppScreen, ErrorMessage, Field, Heading, PrimaryButton } from '../../src/ui/primitives';
 import { theme } from '../../src/ui/theme';
 
 function errorMessage(error: unknown): string {
@@ -25,7 +19,6 @@ export default function CreateBusinessScreen() {
   const [currencyCode, setCurrencyCode] = useState('YER');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdName, setCreatedName] = useState<string | null>(null);
 
   if (!session) return <Redirect href="/sign-in" />;
 
@@ -35,34 +28,18 @@ export default function CreateBusinessScreen() {
     setError(null);
     void ibex
       .createBusiness(
-        {
-          name,
-          countryCode: 'YE',
-          defaultCurrencyCode: currencyCode,
-        },
+        { name, countryCode: 'YE', defaultCurrencyCode: currencyCode },
         `mobile-business-${Date.now().toString(36)}`,
       )
-      .then((business) => setCreatedName(business.name))
+      .then((business) => {
+        router.replace({
+          pathname: '/business/[businessId]/customers',
+          params: { businessId: business.id, businessName: business.name },
+        });
+      })
       .catch((createError: unknown) => setError(errorMessage(createError)))
       .finally(() => setLoading(false));
   };
-
-  if (createdName) {
-    return (
-      <AppScreen>
-        <View style={styles.successCard}>
-          <View style={styles.successMark}>
-            <Text style={styles.successMarkText}>✓</Text>
-          </View>
-          <Heading
-            title="تم إنشاء النشاط"
-            subtitle={`أصبح ${createdName} جاهزًا لإضافة العملاء والحسابات.`}
-          />
-          <PrimaryButton onPress={() => router.replace('/home')}>العودة لمساحة العمل</PrimaryButton>
-        </View>
-      </AppScreen>
-    );
-  }
 
   return (
     <AppScreen>
@@ -70,10 +47,7 @@ export default function CreateBusinessScreen() {
         <Text style={styles.backText}>رجوع</Text>
       </Pressable>
 
-      <Heading
-        title="نشاطك التجاري"
-        subtitle="هذه الخطوة تنشئ مساحة مستقلة بحدود صلاحيات ودفاتر منفصلة."
-      />
+      <Heading title="نشاطك التجاري" subtitle="أنشئ مساحة مستقلة ثم ابدأ بإضافة العملاء مباشرة." />
 
       <Field
         autoFocus
@@ -97,41 +71,18 @@ export default function CreateBusinessScreen() {
         loading={loading}
         onPress={submit}
       >
-        إنشاء النشاط
+        إنشاء النشاط والمتابعة
       </PrimaryButton>
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
-  },
+  backButton: { alignSelf: 'flex-start', paddingVertical: theme.spacing.sm, marginBottom: theme.spacing.lg },
   backText: {
     color: theme.colors.textMuted,
     fontSize: theme.typography.caption,
     fontWeight: '700',
     writingDirection: 'rtl',
-  },
-  successCard: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  successMark: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'flex-end',
-    marginBottom: theme.spacing.lg,
-  },
-  successMarkText: {
-    color: theme.colors.primaryText,
-    fontSize: 30,
-    fontWeight: '700',
   },
 });
