@@ -68,8 +68,23 @@ export default function HomeScreen() {
 
   if (!session) return <Redirect href="/sign-in" />;
 
+  const displayName = typeof session.user.user_metadata?.full_name === 'string'
+    ? session.user.user_metadata.full_name.trim()
+    : '';
+  const primaryBusiness = businesses[0];
   const logout = () => {
     void auth.signOut();
+  };
+  const openBusinessWorkspace = (business: BusinessSummaryRecord) => {
+    router.push({
+      pathname: '/business/[businessId]',
+      params: {
+        businessId: business.businessId,
+        businessName: business.name,
+        currencyCode: business.defaultCurrencyCode ?? '',
+        role: business.role,
+      },
+    });
   };
 
   return (
@@ -95,16 +110,16 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>مساحتك المالية</Text>
-          <Text style={styles.heroTitle}>كل ما تحتاجه للوصول إلى حساباتك وأنشطتك بسرعة.</Text>
+          <Text style={styles.eyebrow}>{displayName ? `مرحبًا، ${displayName}` : 'مساحتك المالية'}</Text>
+          <Text style={styles.heroTitle}>إدارة واضحة للعملاء والحسابات والمتابعة اليومية.</Text>
           <Text style={styles.heroBody}>
-            واجهة واحدة للحسابات، الأنشطة، الحركات المهمة والإشعارات، مع فصل واضح بين تجربة العميل وإدارة النشاط.
+            ابدأ من نشاطك، ثم انتقل إلى العملاء والحسابات والمراجعات دون تكرار المنطق المالي داخل الواجهة.
           </Text>
         </View>
 
         {isPreviewMode ? (
           <InlineFeedback tone="info">
-            وضع العرض يستخدم بيانات محلية تجريبية فقط، ولا يرسل أي حركة مالية إلى Supabase.
+            وضع العرض يستخدم بيانات محلية تجريبية فقط، ولا يرسل أي حركة مالية إلى Supabase أو يعتبر رقم الهاتف موثقًا.
           </InlineFeedback>
         ) : null}
 
@@ -128,7 +143,11 @@ export default function HomeScreen() {
         </Surface>
 
         <View style={styles.quickActions}>
-          <Button onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</Button>
+          {primaryBusiness ? (
+            <Button onPress={() => openBusinessWorkspace(primaryBusiness)}>فتح مساحة إدارة النشاط</Button>
+          ) : (
+            <Button onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</Button>
+          )}
           <Button onPress={() => router.push('/notifications')} variant="secondary">
             فتح الإشعارات
           </Button>
@@ -213,12 +232,7 @@ export default function HomeScreen() {
                   <Pressable
                     accessibilityRole="button"
                     key={business.businessId}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/business/[businessId]/customers',
-                        params: { businessId: business.businessId, businessName: business.name },
-                      })
-                    }
+                    onPress={() => openBusinessWorkspace(business)}
                     style={({ pressed }) => [pressed ? styles.pressed : null]}
                   >
                     <Surface variant="outlined">
