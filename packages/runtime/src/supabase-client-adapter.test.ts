@@ -7,9 +7,9 @@ class Thenable<T> implements PromiseLike<T> {
 
   then<TResult1 = T, TResult2 = never>(
     onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
-    _onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> {
-    return Promise.resolve(this.value).then(onfulfilled ?? undefined);
+    return Promise.resolve(this.value).then(onfulfilled ?? undefined, onrejected ?? undefined);
   }
 }
 
