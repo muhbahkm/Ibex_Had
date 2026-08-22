@@ -108,6 +108,19 @@ export class IbexApplication {
       transactionId: requireId(input.transactionId, 'transactionId'),
     });
   }
+  async listNotifications(context: RequestContext, input: { readonly unreadOnly?: boolean; readonly limit?: number } = {}) {
+    return this.repository.listNotifications({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+      unreadOnly: input.unreadOnly ?? false,
+      limit: normalizeLimit(input.limit, 50, 200),
+    });
+  }
+  async markNotificationRead(context: RequestContext, input: { readonly notificationId: string }) {
+    return this.repository.markNotificationRead({
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+      notificationId: requireId(input.notificationId, 'notificationId'),
+    });
+  }
   async postSale(context: RequestContext, input: { readonly businessId: string; readonly customerIdentityId: string; readonly accountId: string; readonly amountMinor: string; readonly currencyCode: string; readonly idempotencyKey: string; readonly occurredAt?: string; readonly description?: string }) {
     return this.repository.postMovement({ actorUserId: requireId(context.actorUserId, 'actorUserId'), businessId: requireId(input.businessId, 'businessId'), customerIdentityId: requireId(input.customerIdentityId, 'customerIdentityId'), accountId: requireId(input.accountId, 'accountId'), transactionType: 'sale_on_account', direction: 'debit', amountMinor: parsePositiveMinorUnits(input.amountMinor), currencyCode: normalizeCurrencyCode(input.currencyCode), idempotencyKey: normalizeIdempotencyKey(input.idempotencyKey), ...(input.occurredAt ? { occurredAt: input.occurredAt } : {}), ...(input.description ? { description: input.description.trim() } : {}), ...(context.requestId ? { requestId: context.requestId } : {}) });
   }
