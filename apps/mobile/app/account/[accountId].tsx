@@ -86,12 +86,20 @@ export default function AccountScreen() {
                   <Text style={styles.dateText}>{new Date(entry.occurredAt).toLocaleDateString('en-GB')}</Text>
                   <Text style={styles.runningBalance}>الرصيد: {formatMinorUnits(entry.balanceAfterMinor, entry.currencyCode)}</Text>
                 </View>
-                {!customerMode && entry.canReverse ? (
-                  <Pressable onPress={() => router.push({ pathname: '/account/[accountId]/reverse', params: { ...movementParams, transactionId: entry.transactionId, movementLabel: label, amount } })} style={styles.reverseButton}><Text style={styles.reverseText}>عكس الحركة</Text></Pressable>
-                ) : null}
-                {customerMode ? (
-                  <Pressable onPress={() => router.push({ pathname: '/account/[accountId]/review', params: { accountId, transactionId: entry.transactionId, movementLabel: label, amount } })} style={styles.reviewButton}><Text style={styles.reviewText}>طلب مراجعة</Text></Pressable>
-                ) : null}
+                <View style={styles.entryActions}>
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/account/[accountId]/documents', params: { accountId, transactionId: entry.transactionId, mode: customerMode ? 'customer' : 'merchant', movementLabel: label } })}
+                    style={styles.documentButton}
+                  >
+                    <Text style={styles.documentText}>المستندات</Text>
+                  </Pressable>
+                  {!customerMode && entry.canReverse ? (
+                    <Pressable onPress={() => router.push({ pathname: '/account/[accountId]/reverse', params: { ...movementParams, transactionId: entry.transactionId, movementLabel: label, amount } })} style={styles.reverseButton}><Text style={styles.reverseText}>عكس الحركة</Text></Pressable>
+                  ) : null}
+                  {customerMode ? (
+                    <Pressable onPress={() => router.push({ pathname: '/account/[accountId]/review', params: { accountId, transactionId: entry.transactionId, movementLabel: label, amount } })} style={styles.reviewButton}><Text style={styles.reviewText}>طلب مراجعة</Text></Pressable>
+                  ) : null}
+                </View>
               </View>
             );
           })}
@@ -133,9 +141,12 @@ const styles = StyleSheet.create({
   entryBottom: { flexDirection: 'row-reverse', justifyContent: 'space-between', marginTop: theme.spacing.md },
   dateText: { color: theme.colors.textMuted, fontSize: theme.typography.caption, writingDirection: 'ltr' },
   runningBalance: { color: theme.colors.textMuted, fontSize: theme.typography.caption, writingDirection: 'rtl' },
-  reverseButton: { alignSelf: 'flex-start', marginTop: theme.spacing.md, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceMuted },
+  entryActions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: theme.spacing.sm, marginTop: theme.spacing.md },
+  documentButton: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border },
+  documentText: { color: theme.colors.primary, fontWeight: '700', fontSize: theme.typography.caption, writingDirection: 'rtl' },
+  reverseButton: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceMuted },
   reverseText: { color: theme.colors.textMuted, fontWeight: '700', fontSize: theme.typography.caption, writingDirection: 'rtl' },
-  reviewButton: { alignSelf: 'flex-start', marginTop: theme.spacing.md, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border },
+  reviewButton: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border },
   reviewText: { color: theme.colors.primary, fontWeight: '700', fontSize: theme.typography.caption, writingDirection: 'rtl' },
   emptyCard: { padding: theme.spacing.lg, backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.lg },
   emptyText: { color: theme.colors.textMuted, textAlign: 'right', writingDirection: 'rtl' },
