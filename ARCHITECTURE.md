@@ -25,6 +25,8 @@ Each domain owns its types, services, validation, tests, and public contracts.
 - Merchant Web: Next.js + React + TypeScript
 - Backend/Application Layer: TypeScript
 - Database: PostgreSQL on Supabase
+- Canonical Supabase project: `Ibex_Had v1`
+- Canonical Supabase region: `ap-south-1` — South Asia (Mumbai)
 - Auth: Supabase Auth with phone OTP
 - Storage: Supabase Storage
 - Authorization: RLS plus application/domain authorization
@@ -67,6 +69,8 @@ A client requests a business operation, for example `PostReceipt`. The applicati
 Supabase is managed infrastructure, not the architecture of the product. Avoid scattering direct `supabase.from(...)` financial writes throughout clients.
 
 All production DDL must exist as repository migrations and be reproducible from source control.
+
+The Mumbai project is the canonical production foundation. The earlier Seoul bootstrap project is not a source of truth and must not receive new schema or application writes.
 
 ## Deployment isolation
 
