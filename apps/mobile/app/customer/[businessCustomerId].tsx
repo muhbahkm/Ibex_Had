@@ -1,7 +1,15 @@
 import type { CustomerAccountSummaryRecord } from '../../../../packages/application/src/ports';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { useAuth } from '../../src/features/auth/auth-context';
 import { ibex } from '../../src/lib/ibex';
@@ -37,6 +45,7 @@ export default function CustomerAccountsScreen() {
   const [accounts, setAccounts] = useState<readonly CustomerAccountSummaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -79,6 +88,25 @@ export default function CustomerAccountsScreen() {
       .finally(() => setOpening(null));
   };
 
+  const shareInvite = () => {
+    if (sharing) return;
+    setSharing(true);
+    setError(null);
+    void ibex
+      .createCustomerInvite(
+        { businessCustomerId, ttlHours: 168 },
+        `mobile-invite-${Date.now().toString(36)}`,
+      )
+      .then((invite) =>
+        Share.share({
+          title: `دعوة IBEX HAD — ${displayName}`,
+          message: `${businessName || 'نشاطك التجاري'} يدعوك لعرض حسابك مباشرة في IBEX HAD. افتح الرابط وسجل الدخول بنفس رقم الجوال المسجل لديك:\n\nibexhad://invite/${invite.token}\n\nتنتهي صلاحية الدعوة في ${new Date(invite.expiresAt).toLocaleDateString('en-GB')}.`,
+        }),
+      )
+      .catch((shareError: unknown) => setError(message(shareError)))
+      .finally(() => setSharing(false));
+  };
+
   return (
     <AppScreen>
       <ScrollView contentContainerStyle={styles.content}>
@@ -86,6 +114,16 @@ export default function CustomerAccountsScreen() {
           <Text style={styles.backText}>رجوع</Text>
         </Pressable>
         <Heading title={displayName} subtitle={phone || businessName || 'حساب العميل'} />
+
+        <View style={styles.inviteCard}>
+          <View style={styles.inviteCopy}>
+            <Text style={styles.inviteTitle}>دخول العميل إلى حسابه</Text>
+            <Text style={styles.inviteBody}>
+              أنشئ رابطًا آمنًا صالحًا لمدة 7 أيام. الرابط وحده لا يكفي؛ يجب أن يسجل العميل بنفس رقم الجوال الموثق.
+            </Text>
+          </View>
+          <PrimaryButton loading={sharing} onPress={shareInvite}>مشاركة الدعوة</PrimaryButton>
+        </View>
 
         <View style={styles.currencyActions}>
           {['YER', 'SAR', 'USD'].map((code) => (
@@ -156,32 +194,22 @@ const styles = StyleSheet.create({
   content: { paddingBottom: theme.spacing.xl },
   backButton: { alignSelf: 'flex-start', paddingVertical: theme.spacing.sm, marginBottom: theme.spacing.md },
   backText: { color: theme.colors.textMuted, fontWeight: '700', writingDirection: 'rtl' },
-  currencyActions: { flexDirection: 'row-reverse', gap: theme.spacing.sm, marginBottom: theme.spacing.md },
-  currencyButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: theme.radius.md,
+  inviteCard: {
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    borderRadius: theme.radius.lg,
     backgroundColor: theme.colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
+  inviteCopy: { gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
+  inviteTitle: { color: theme.colors.text, fontWeight: '800', fontSize: theme.typography.body, textAlign: 'right', writingDirection: 'rtl' },
+  inviteBody: { color: theme.colors.textMuted, lineHeight: 23, textAlign: 'right', writingDirection: 'rtl' },
+  currencyActions: { flexDirection: 'row-reverse', gap: theme.spacing.sm, marginBottom: theme.spacing.md },
+  currencyButton: { flex: 1, minHeight: 48, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceMuted, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
   currencyText: { color: theme.colors.text, fontWeight: '700' },
   pressed: { opacity: 0.7 },
   loader: { marginVertical: theme.spacing.lg },
   list: { gap: theme.spacing.sm },
-  accountCard: {
-    minHeight: 84,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.lg,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  accountCard: { minHeight: 84, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, padding: theme.spacing.lg, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
   accountCurrency: { color: theme.colors.text, fontSize: theme.typography.heading, fontWeight: '800' },
   accountStatus: { color: theme.colors.textMuted, fontSize: theme.typography.caption, marginTop: theme.spacing.xs },
   balance: { color: theme.colors.text, fontSize: theme.typography.heading, fontWeight: '700', writingDirection: 'ltr' },
