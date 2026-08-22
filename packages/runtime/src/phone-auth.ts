@@ -16,14 +16,14 @@ export interface PhoneAuthClient {
     signInWithOtp(input: {
       readonly phone: string;
       readonly options: { readonly shouldCreateUser: boolean };
-    }): Promise<{ readonly error: PhoneAuthErrorLike | null }>;
+    }): PromiseLike<{ readonly error: PhoneAuthErrorLike | null }>;
     verifyOtp(input: {
       readonly phone: string;
       readonly token: string;
       readonly type: 'sms';
-    }): Promise<{ readonly error: PhoneAuthErrorLike | null }>;
+    }): PromiseLike<{ readonly error: PhoneAuthErrorLike | null }>;
   };
-  rpc(functionName: string, args?: Record<string, unknown>): Promise<{
+  rpc(functionName: string, args?: Record<string, unknown>): PromiseLike<{
     readonly data: unknown;
     readonly error: PhoneAuthErrorLike | null;
   }>;
