@@ -1,4 +1,4 @@
-import type { TransactionDocumentRecord } from '../../../../../../packages/application/src/ports';
+import type { TransactionDocumentRecord } from '../../../../../packages/application/src/ports';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import * as Linking from 'expo-linking';
