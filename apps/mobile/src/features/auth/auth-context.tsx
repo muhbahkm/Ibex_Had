@@ -17,6 +17,7 @@ import {
 } from '../../../../../packages/core/src/index';
 import { supabase } from '../../lib/supabase';
 import type { PendingPhoneOnboarding } from './auth-service';
+import { previewManagerPersona } from './preview-persona';
 
 const previewAuthEnabled = process.env.EXPO_PUBLIC_AUTH_MODE?.trim().toLowerCase() === 'preview';
 
@@ -40,7 +41,11 @@ function createPreviewSession(fullNameInput: string, phoneInput: string): Sessio
       confirmed_at: now,
       last_sign_in_at: now,
       app_metadata: { provider: 'preview', providers: ['preview'] },
-      user_metadata: { full_name: fullName, preview: true },
+      user_metadata: {
+        full_name: fullName,
+        preview: true,
+        preview_role: previewManagerPersona.role,
+      },
       identities: [],
       created_at: now,
       updated_at: now,
@@ -56,6 +61,7 @@ type AuthContextValue = {
   readonly pendingOnboarding: PendingPhoneOnboarding | null;
   readonly setPendingOnboarding: Dispatch<SetStateAction<PendingPhoneOnboarding | null>>;
   enterPreview(fullName: string, phone: string): void;
+  enterManagerPreview(): void;
   signOut(): Promise<void>;
 };
 
@@ -122,6 +128,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         setPendingOnboarding(null);
         setSession(createPreviewSession(fullName, phone));
+      },
+      enterManagerPreview() {
+        if (!previewAuthEnabled) {
+          throw new Error('Preview authentication is disabled.');
+        }
+        setPendingOnboarding(null);
+        setSession(createPreviewSession(previewManagerPersona.fullName, previewManagerPersona.phone));
       },
       async signOut() {
         if (previewAuthEnabled) {
