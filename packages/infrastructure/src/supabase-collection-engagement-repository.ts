@@ -45,19 +45,26 @@ export class SupabaseCollectionEngagementRepository implements CollectionEngagem
       p_next_action_at: input.nextActionAt ?? null,
       p_request_id: input.requestId ?? null,
     }), operation);
+    const accountId = optionalString(row.accountId);
+    const channel = optionalString(row.channel);
+    const outcome = optionalString(row.outcome);
+    const note = optionalString(row.note);
+    const currencyCode = optionalString(row.currencyCode);
+    const promisedFor = optionalString(row.promisedFor);
+    const nextActionAt = optionalString(row.nextActionAt);
     return {
       eventId: string(row.eventId, 'eventId', operation),
       businessId: string(row.businessId, 'businessId', operation),
       businessCustomerId: string(row.businessCustomerId, 'businessCustomerId', operation),
-      ...(optionalString(row.accountId) ? { accountId: optionalString(row.accountId) } : {}),
+      ...(accountId ? { accountId } : {}),
       eventKind: oneOf<CollectionEventKind>(row.eventKind, 'eventKind', eventKinds, operation),
-      ...(optionalString(row.channel) ? { channel: oneOf<CollectionChannel>(row.channel, 'channel', channels, operation) } : {}),
-      ...(optionalString(row.outcome) ? { outcome: oneOf<CollectionOutcome>(row.outcome, 'outcome', outcomes, operation) } : {}),
-      ...(optionalString(row.note) ? { note: optionalString(row.note) } : {}),
+      ...(channel ? { channel: oneOf<CollectionChannel>(channel, 'channel', channels, operation) } : {}),
+      ...(outcome ? { outcome: oneOf<CollectionOutcome>(outcome, 'outcome', outcomes, operation) } : {}),
+      ...(note ? { note } : {}),
       ...(row.promisedAmountMinor !== null && row.promisedAmountMinor !== undefined ? { promisedAmountMinor: bigint(row.promisedAmountMinor, 'promisedAmountMinor', operation) } : {}),
-      ...(optionalString(row.currencyCode) ? { currencyCode: optionalString(row.currencyCode) } : {}),
-      ...(optionalString(row.promisedFor) ? { promisedFor: optionalString(row.promisedFor) } : {}),
-      ...(optionalString(row.nextActionAt) ? { nextActionAt: optionalString(row.nextActionAt) } : {}),
+      ...(currencyCode ? { currencyCode } : {}),
+      ...(promisedFor ? { promisedFor } : {}),
+      ...(nextActionAt ? { nextActionAt } : {}),
       createdAt: string(row.createdAt, 'createdAt', operation),
     };
   }
@@ -74,11 +81,17 @@ export class SupabaseCollectionEngagementRepository implements CollectionEngagem
     return rows.map((value, index) => {
       const row = object(value, operation);
       const prefix = `rows[${index}]`;
+      const phoneE164 = optionalString(row.phone_e164);
+      const lastFollowUpAt = optionalString(row.last_followup_at);
+      const lastEventKind = optionalString(row.last_event_kind);
+      const lastOutcome = optionalString(row.last_outcome);
+      const promisedFor = optionalString(row.promised_for);
+      const nextActionAt = optionalString(row.next_action_at);
       return {
         businessCustomerId: string(row.business_customer_id, `${prefix}.business_customer_id`, operation),
         customerIdentityId: string(row.customer_identity_id, `${prefix}.customer_identity_id`, operation),
         displayName: string(row.display_name, `${prefix}.display_name`, operation),
-        ...(optionalString(row.phone_e164) ? { phoneE164: optionalString(row.phone_e164) } : {}),
+        ...(phoneE164 ? { phoneE164 } : {}),
         accountId: string(row.account_id, `${prefix}.account_id`, operation),
         currencyCode: string(row.currency_code, `${prefix}.currency_code`, operation),
         balanceMinor: bigint(row.balance_minor, `${prefix}.balance_minor`, operation),
@@ -90,31 +103,38 @@ export class SupabaseCollectionEngagementRepository implements CollectionEngagem
         priorityScore: integer(row.priority_score, `${prefix}.priority_score`, operation),
         recommendedAction: oneOf<CollectionRecommendedAction>(row.recommended_action, `${prefix}.recommended_action`, actions, operation),
         reasonCode: string(row.reason_code, `${prefix}.reason_code`, operation),
-        ...(optionalString(row.last_followup_at) ? { lastFollowUpAt: optionalString(row.last_followup_at) } : {}),
-        ...(optionalString(row.last_event_kind) ? { lastEventKind: oneOf<CollectionEventKind>(row.last_event_kind, `${prefix}.last_event_kind`, eventKinds, operation) } : {}),
-        ...(optionalString(row.last_outcome) ? { lastOutcome: oneOf<CollectionOutcome>(row.last_outcome, `${prefix}.last_outcome`, outcomes, operation) } : {}),
-        ...(optionalString(row.promised_for) ? { promisedFor: optionalString(row.promised_for) } : {}),
+        ...(lastFollowUpAt ? { lastFollowUpAt } : {}),
+        ...(lastEventKind ? { lastEventKind: oneOf<CollectionEventKind>(lastEventKind, `${prefix}.last_event_kind`, eventKinds, operation) } : {}),
+        ...(lastOutcome ? { lastOutcome: oneOf<CollectionOutcome>(lastOutcome, `${prefix}.last_outcome`, outcomes, operation) } : {}),
+        ...(promisedFor ? { promisedFor } : {}),
         ...(row.promised_amount_minor !== null && row.promised_amount_minor !== undefined ? { promisedAmountMinor: bigint(row.promised_amount_minor, `${prefix}.promised_amount_minor`, operation) } : {}),
-        ...(optionalString(row.next_action_at) ? { nextActionAt: optionalString(row.next_action_at) } : {}),
+        ...(nextActionAt ? { nextActionAt } : {}),
       } satisfies CollectionTodayPlanRecord;
     });
   }
 
   private parseHistoryRow(row: JsonObject, index: number, operation: string): CollectionFollowUpEventRecord {
     const prefix = `rows[${index}]`;
+    const accountId = optionalString(row.account_id);
+    const channel = optionalString(row.channel);
+    const outcome = optionalString(row.outcome);
+    const note = optionalString(row.note);
+    const currencyCode = optionalString(row.currency_code);
+    const promisedFor = optionalString(row.promised_for);
+    const nextActionAt = optionalString(row.next_action_at);
     return {
       eventId: string(row.event_id, `${prefix}.event_id`, operation),
       businessId: string(row.business_id, `${prefix}.business_id`, operation),
       businessCustomerId: string(row.business_customer_id, `${prefix}.business_customer_id`, operation),
-      ...(optionalString(row.account_id) ? { accountId: optionalString(row.account_id) } : {}),
+      ...(accountId ? { accountId } : {}),
       eventKind: oneOf<CollectionEventKind>(row.event_kind, `${prefix}.event_kind`, eventKinds, operation),
-      ...(optionalString(row.channel) ? { channel: oneOf<CollectionChannel>(row.channel, `${prefix}.channel`, channels, operation) } : {}),
-      ...(optionalString(row.outcome) ? { outcome: oneOf<CollectionOutcome>(row.outcome, `${prefix}.outcome`, outcomes, operation) } : {}),
-      ...(optionalString(row.note) ? { note: optionalString(row.note) } : {}),
+      ...(channel ? { channel: oneOf<CollectionChannel>(channel, `${prefix}.channel`, channels, operation) } : {}),
+      ...(outcome ? { outcome: oneOf<CollectionOutcome>(outcome, `${prefix}.outcome`, outcomes, operation) } : {}),
+      ...(note ? { note } : {}),
       ...(row.promised_amount_minor !== null && row.promised_amount_minor !== undefined ? { promisedAmountMinor: bigint(row.promised_amount_minor, `${prefix}.promised_amount_minor`, operation) } : {}),
-      ...(optionalString(row.currency_code) ? { currencyCode: optionalString(row.currency_code) } : {}),
-      ...(optionalString(row.promised_for) ? { promisedFor: optionalString(row.promised_for) } : {}),
-      ...(optionalString(row.next_action_at) ? { nextActionAt: optionalString(row.next_action_at) } : {}),
+      ...(currencyCode ? { currencyCode } : {}),
+      ...(promisedFor ? { promisedFor } : {}),
+      ...(nextActionAt ? { nextActionAt } : {}),
       createdAt: string(row.created_at, `${prefix}.created_at`, operation),
     };
   }
