@@ -88,6 +88,7 @@ export default function AccountScreen() {
               { label: 'حركة', value: String(entries.length) },
               { label: 'بيع آجل', value: String(salesCount) },
               { label: 'قبض', value: String(receiptsCount) },
+              { label: 'أخرى', value: String(adjustmentsCount) },
             ]} />
 
             <View style={styles.section}>
