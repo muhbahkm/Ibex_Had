@@ -14,16 +14,26 @@ Ship a production-grade MVP that proves the core Shared Customer Ledger use case
 6. Every delivery ends with tests, verification, and relevant security/performance checks.
 
 ## Phase 0 — Foundation and governance
-Status: in progress.
+Status: technical foundation complete; GitHub account-level hardening pending.
 
-- Confirm Supabase Mumbai project as the only active backend target.
-- Keep GitHub as source of truth for code and migrations.
-- Keep Notion as source of truth for product/architecture decisions.
-- Review repository privacy, branch protection, and PR flow.
-- Define naming, TypeScript, commit, migration, environment, and secret conventions.
-- Add initial CI: lint, typecheck, tests.
+Completed:
+- Supabase Mumbai project `Ibex_Had v1` is the only active backend target.
+- GitHub is established as source of truth for code and migrations.
+- Notion is established as source of truth for product/architecture decisions.
+- PR-based delivery flow was exercised successfully through PR #1.
+- TypeScript/pnpm workspace foundation is committed.
+- Strict TypeScript configuration, ESLint, Vitest, repository hygiene, PR template, CODEOWNERS, environment template, and engineering conventions are committed.
+- GitHub Actions CI runs lint, typecheck, and tests and is green.
+- Supabase remains intentionally schema-empty before Phase 1, with no migrations or Edge Functions.
+- Supabase Security and Performance Advisors are clean at the Phase 0 checkpoint.
 
-Exit criteria: protected repo, green CI, documented environments, no drift across GitHub/Supabase/Notion.
+Administrative hardening still required in GitHub settings:
+- Change repository visibility from Public to Private before sensitive implementation details/secrets/infrastructure are introduced.
+- Enable branch protection/rules for `main`, requiring pull requests and the CI status check before merge.
+
+These settings are tracked as owner-level repository administration because the connected GitHub tool surface does not expose repository visibility or branch-protection mutation.
+
+Exit criteria for the technical foundation are met. Full governance hardening is complete once the two GitHub settings above are enabled.
 
 ## Phase 1 — Ledger core and Schema v1
 Priority: critical.
@@ -122,4 +132,4 @@ A feature/change is complete only when applicable items are satisfied:
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Complete Phase 0, then start Phase 1 by reviewing/finalizing Schema v1 and creating the first production migration for the financial core.
+Begin Phase 1: review and freeze Schema v1, then create the first production migration for the financial core with RLS and ledger invariant tests.
