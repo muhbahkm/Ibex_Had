@@ -4,6 +4,7 @@ import {
 } from '../../../../../packages/core/src/index';
 
 import { supabase } from '../../lib/supabase';
+import { phoneAuthErrorMessage } from './auth-errors';
 
 export type PendingPhoneOnboarding = {
   readonly fullName: string;
@@ -24,7 +25,7 @@ export async function requestPhoneOtp(input: {
     },
   });
 
-  if (error) throw error;
+  if (error) throw new Error(phoneAuthErrorMessage(error, 'تعذر إرسال رمز التحقق. حاول مرة أخرى.'));
   return { fullName, phoneE164 };
 }
 
@@ -42,12 +43,14 @@ export async function verifyPhoneOtpAndCompleteProfile(
     token: normalizedToken,
     type: 'sms',
   });
-  if (verifyError) throw verifyError;
+  if (verifyError) {
+    throw new Error(phoneAuthErrorMessage(verifyError, 'تعذر التحقق من الرمز. تأكد منه وحاول مرة أخرى.'));
+  }
 
   const { error: profileError } = await supabase.rpc('complete_profile', {
     p_full_name: pending.fullName,
   });
-  if (profileError) throw profileError;
+  if (profileError) throw new Error('تم التحقق من رقم الجوال، لكن تعذر إكمال الملف الشخصي. حاول الدخول مرة أخرى.');
 }
 
 export async function resendPhoneOtp(phoneE164: string): Promise<void> {
@@ -57,5 +60,5 @@ export async function resendPhoneOtp(phoneE164: string): Promise<void> {
       shouldCreateUser: false,
     },
   });
-  if (error) throw error;
+  if (error) throw new Error(phoneAuthErrorMessage(error, 'تعذر إعادة إرسال رمز التحقق. حاول مرة أخرى.'));
 }
