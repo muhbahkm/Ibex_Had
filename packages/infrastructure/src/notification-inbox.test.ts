@@ -5,7 +5,7 @@ import { InfrastructureError, SupabaseApplicationRepository } from './supabase-a
 
 class RecordingRpcClient implements SupabaseRpcClient {
   functionName?: string;
-  args?: Record<string, unknown>;
+  args: Record<string, unknown> | undefined;
   constructor(private readonly response: RpcResponse) {}
   rpc(functionName: string, args?: Record<string, unknown>): Promise<RpcResponse> {
     this.functionName = functionName;
