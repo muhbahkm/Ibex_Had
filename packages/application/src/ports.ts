@@ -38,6 +38,21 @@ export interface DisputeRecord {
 export interface MyDisputeRecord extends DisputeRecord { readonly businessName: string; }
 export interface BusinessDisputeRecord extends DisputeRecord { readonly customerIdentityId: string; readonly customerName: string; }
 
+export type NotificationKind = 'transaction_posted' | 'dispute_opened' | 'dispute_closed';
+export interface NotificationRecord {
+  readonly notificationId: string;
+  readonly kind: NotificationKind;
+  readonly businessId: string;
+  readonly businessName: string;
+  readonly transactionId: string;
+  readonly transactionType: LedgerTransactionType;
+  readonly disputeId?: string;
+  readonly disputeStatus?: DisputeStatus;
+  readonly readAt?: string;
+  readonly createdAt: string;
+}
+export interface MarkedNotificationRecord { readonly notificationId: string; readonly readAt: string; }
+
 export interface CreateBusinessPortInput { readonly actorUserId: string; readonly name: string; readonly countryCode: string; readonly defaultCurrencyCode?: string; readonly requestId?: string; }
 export interface CreateCustomerPortInput { readonly actorUserId: string; readonly businessId: string; readonly displayName: string; readonly phoneE164?: string; readonly requestId?: string; }
 export interface OpenAccountPortInput { readonly actorUserId: string; readonly businessCustomerId: string; readonly currencyCode: string; readonly requestId?: string; }
@@ -47,6 +62,8 @@ export interface OpenDisputePortInput { readonly actorUserId: string; readonly t
 export interface UpdateDisputePortInput { readonly actorUserId: string; readonly disputeId: string; readonly status: 'under_review' | 'resolved' | 'rejected'; readonly resolutionNote?: string; readonly requestId?: string; }
 export interface PrepareTransactionDocumentPortInput { readonly actorUserId: string; readonly transactionId: string; readonly fileName: string; readonly mimeType: string; readonly sizeBytes: number; readonly requestId?: string; }
 export interface ListTransactionDocumentsPortInput { readonly actorUserId: string; readonly transactionId: string; }
+export interface ListNotificationsPortInput { readonly actorUserId: string; readonly unreadOnly: boolean; readonly limit: number; }
+export interface MarkNotificationReadPortInput { readonly actorUserId: string; readonly notificationId: string; }
 export interface PostMovementPortInput { readonly actorUserId: string; readonly businessId: string; readonly customerIdentityId: string; readonly accountId: string; readonly transactionType: LedgerTransactionType; readonly direction: LedgerDirection; readonly amountMinor: bigint; readonly currencyCode: string; readonly idempotencyKey: string; readonly occurredAt?: string; readonly description?: string; readonly requestId?: string; }
 export interface ReverseTransactionPortInput { readonly actorUserId: string; readonly transactionId: string; readonly idempotencyKey: string; readonly occurredAt?: string; readonly reason?: string; readonly requestId?: string; }
 export interface ListBusinessesPortInput { readonly actorUserId: string; }
@@ -67,6 +84,8 @@ export interface ApplicationRepository {
   updateDispute(input: UpdateDisputePortInput): Promise<DisputeRecord>;
   prepareTransactionDocument(input: PrepareTransactionDocumentPortInput): Promise<PreparedTransactionDocumentRecord>;
   listTransactionDocuments(input: ListTransactionDocumentsPortInput): Promise<readonly TransactionDocumentRecord[]>;
+  listNotifications(input: ListNotificationsPortInput): Promise<readonly NotificationRecord[]>;
+  markNotificationRead(input: MarkNotificationReadPortInput): Promise<MarkedNotificationRecord>;
   postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord>;
   reverseTransaction(input: ReverseTransactionPortInput): Promise<PostedMovementRecord>;
   listBusinesses(input: ListBusinessesPortInput): Promise<readonly BusinessSummaryRecord[]>;
