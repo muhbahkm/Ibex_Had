@@ -47,6 +47,17 @@ export interface CustomerAccountSummaryRecord {
   readonly balanceMinor: bigint;
 }
 
+export interface MyCustomerAccountRecord {
+  readonly businessId: string;
+  readonly businessName: string;
+  readonly businessCustomerId: string;
+  readonly customerIdentityId: string;
+  readonly accountId: string;
+  readonly currencyCode: string;
+  readonly accountStatus: string;
+  readonly balanceMinor: bigint;
+}
+
 export interface PostedMovementRecord {
   readonly transactionId: string;
   readonly accountId: string;
@@ -57,11 +68,13 @@ export interface PostedMovementRecord {
 export interface StatementEntryRecord {
   readonly transactionId: string;
   readonly transactionType: LedgerTransactionType;
+  readonly transactionStatus: 'posted' | 'reversed';
   readonly occurredAt: string;
   readonly description?: string;
   readonly effectMinor: bigint;
   readonly balanceAfterMinor: bigint;
   readonly currencyCode: string;
+  readonly canReverse: boolean;
 }
 
 export interface CreateBusinessPortInput {
@@ -127,6 +140,10 @@ export interface ListCustomerAccountsPortInput {
   readonly businessCustomerId: string;
 }
 
+export interface ListMyCustomerAccountsPortInput {
+  readonly actorUserId: string;
+}
+
 export interface GetStatementPortInput {
   readonly actorUserId: string;
   readonly accountId: string;
@@ -147,5 +164,8 @@ export interface ApplicationRepository {
   listCustomerAccounts(
     input: ListCustomerAccountsPortInput,
   ): Promise<readonly CustomerAccountSummaryRecord[]>;
+  listMyCustomerAccounts(
+    input: ListMyCustomerAccountsPortInput,
+  ): Promise<readonly MyCustomerAccountRecord[]>;
   getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]>;
 }
