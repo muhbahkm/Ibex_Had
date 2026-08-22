@@ -1,6 +1,15 @@
 name: Android Preview APK
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/android-preview-apk.yml'
   push:
     branches: [main]
     paths:
