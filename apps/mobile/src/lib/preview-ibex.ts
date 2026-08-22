@@ -87,9 +87,10 @@ export class PreviewIbexApplication {
 
   async createBusiness(input: { readonly name: string; readonly countryCode?: string; readonly defaultCurrencyCode?: string }): Promise<BusinessRecord> {
     const businessId = id('demo-business');
-    const row: BusinessSummaryRecord = { businessId, name: input.name.trim(), role: 'owner', defaultCurrencyCode: input.defaultCurrencyCode ?? 'YER' };
+    const defaultCurrencyCode = input.defaultCurrencyCode ?? 'YER';
+    const row: BusinessSummaryRecord = { businessId, name: input.name.trim(), role: 'owner', defaultCurrencyCode };
     businesses.unshift(row);
-    return { id: businessId, name: row.name, defaultCurrencyCode: row.defaultCurrencyCode };
+    return { id: businessId, name: row.name, defaultCurrencyCode };
   }
 
   async listBusinessCustomers(input: { readonly businessId: string; readonly limit?: number; readonly search?: string }): Promise<readonly BusinessCustomerSummaryRecord[]> {
