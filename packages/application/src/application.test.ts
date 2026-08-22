@@ -1,0 +1,196 @@
+import { describe, expect, it } from 'vitest';
+
+import { IbexApplication } from './application.js';
+import type {
+  AccountRecord,
+  ApplicationRepository,
+  BusinessRecord,
+  CreateBusinessPortInput,
+  CreateCustomerPortInput,
+  CustomerRecord,
+  GetStatementPortInput,
+  OpenAccountPortInput,
+  PostMovementPortInput,
+  PostedMovementRecord,
+  ReverseTransactionPortInput,
+  StatementEntryRecord,
+} from './ports.js';
+
+class RecordingRepository implements ApplicationRepository {
+  businessInput?: CreateBusinessPortInput;
+  customerInput?: CreateCustomerPortInput;
+  accountInput?: OpenAccountPortInput;
+  movementInput?: PostMovementPortInput;
+  reversalInput?: ReverseTransactionPortInput;
+  statementInput?: GetStatementPortInput;
+
+  async createBusiness(input: CreateBusinessPortInput): Promise<BusinessRecord> {
+    this.businessInput = input;
+    return { id: 'business-1', name: input.name, ...(input.defaultCurrencyCode ? { defaultCurrencyCode: input.defaultCurrencyCode } : {}) };
+  }
+
+  async createCustomer(input: CreateCustomerPortInput): Promise<CustomerRecord> {
+    this.customerInput = input;
+    return { customerIdentityId: 'customer-1', businessCustomerId: 'relationship-1', displayName: input.displayName };
+  }
+
+  async openCustomerAccount(input: OpenAccountPortInput): Promise<AccountRecord> {
+    this.accountInput = input;
+    return { id: 'account-1', businessCustomerId: input.businessCustomerId, currencyCode: input.currencyCode };
+  }
+
+  async postMovement(input: PostMovementPortInput): Promise<PostedMovementRecord> {
+    this.movementInput = input;
+    const effect = input.direction === 'debit' ? input.amountMinor : -input.amountMinor;
+    return { transactionId: 'tx-1', accountId: input.accountId, balanceMinor: effect, currencyCode: input.currencyCode };
+  }
+
+  async reverseTransaction(input: ReverseTransactionPortInput): Promise<PostedMovementRecord> {
+    this.reversalInput = input;
+    return { transactionId: 'reversal-1', accountId: 'account-1', balanceMinor: 0n, currencyCode: 'YER' };
+  }
+
+  async getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]> {
+    this.statementInput = input;
+    return [];
+  }
+}
+
+describe('IbexApplication', () => {
+  it('normalizes business/customer/account inputs before reaching infrastructure', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+
+    await application.createBusiness(
+      { actorUserId: ' user-1 ', requestId: 'req-1' },
+      { name: '  باحكم   للعسل ', defaultCurrencyCode: 'yer' },
+    );
+    await application.createCustomer(
+      { actorUserId: 'user-1' },
+      { businessId: 'business-1', displayName: ' محمد   علي ', phone: '0777 123 456' },
+    );
+    await application.openCustomerAccount(
+      { actorUserId: 'user-1' },
+      { businessCustomerId: 'relationship-1', currencyCode: 'sar' },
+    );
+
+    expect(repository.businessInput).toEqual({
+      actorUserId: 'user-1',
+      name: 'باحكم للعسل',
+      countryCode: 'YE',
+      defaultCurrencyCode: 'YER',
+      requestId: 'req-1',
+    });
+    expect(repository.customerInput?.phoneE164).toBe('+967777123456');
+    expect(repository.customerInput?.displayName).toBe('محمد علي');
+    expect(repository.accountInput?.currencyCode).toBe('SAR');
+  });
+
+  it('maps a sale to a debit using lossless bigint money', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+
+    await application.postSale(
+      { actorUserId: 'user-1' },
+      {
+        businessId: 'business-1',
+        customerIdentityId: 'customer-1',
+        accountId: 'account-1',
+        amountMinor: '900719925474099312345',
+        currencyCode: 'yer',
+        idempotencyKey: 'sale-command-0001',
+      },
+    );
+
+    expect(repository.movementInput?.transactionType).toBe('sale_on_account');
+    expect(repository.movementInput?.direction).toBe('debit');
+    expect(repository.movementInput?.amountMinor).toBe(900719925474099312345n);
+    expect(repository.movementInput?.currencyCode).toBe('YER');
+  });
+
+  it('maps a receipt to a credit', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+
+    await application.postReceipt(
+      { actorUserId: 'user-1' },
+      {
+        businessId: 'business-1',
+        customerIdentityId: 'customer-1',
+        accountId: 'account-1',
+        amountMinor: '50000',
+        currencyCode: 'YER',
+        idempotencyKey: 'receipt-command-0001',
+      },
+    );
+
+    expect(repository.movementInput?.transactionType).toBe('receipt');
+    expect(repository.movementInput?.direction).toBe('credit');
+    expect(repository.movementInput?.amountMinor).toBe(50000n);
+  });
+
+  it('rejects invalid monetary and idempotency inputs before infrastructure', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+
+    await expect(
+      application.postSale(
+        { actorUserId: 'user-1' },
+        {
+          businessId: 'business-1',
+          customerIdentityId: 'customer-1',
+          accountId: 'account-1',
+          amountMinor: '1.5',
+          currencyCode: 'YER',
+          idempotencyKey: 'sale-command-0002',
+        },
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      application.postReceipt(
+        { actorUserId: 'user-1' },
+        {
+          businessId: 'business-1',
+          customerIdentityId: 'customer-1',
+          accountId: 'account-1',
+          amountMinor: '100',
+          currencyCode: 'YER',
+          idempotencyKey: 'short',
+        },
+      ),
+    ).rejects.toThrow();
+
+    expect(repository.movementInput).toBeUndefined();
+  });
+
+  it('delegates reversal as an explicit command', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+
+    await application.reverseTransaction(
+      { actorUserId: 'user-1', requestId: 'request-9' },
+      { transactionId: 'tx-original', idempotencyKey: 'reversal-command-0001', reason: 'تصحيح' },
+    );
+
+    expect(repository.reversalInput).toEqual({
+      actorUserId: 'user-1',
+      transactionId: 'tx-original',
+      idempotencyKey: 'reversal-command-0001',
+      reason: 'تصحيح',
+      requestId: 'request-9',
+    });
+  });
+
+  it('bounds statement pagination', async () => {
+    const repository = new RecordingRepository();
+    const application = new IbexApplication(repository);
+
+    await application.getStatement({ actorUserId: 'user-1' }, { accountId: 'account-1' });
+    expect(repository.statementInput?.limit).toBe(50);
+
+    await expect(
+      application.getStatement({ actorUserId: 'user-1' }, { accountId: 'account-1', limit: 201 }),
+    ).rejects.toThrow();
+  });
+});
