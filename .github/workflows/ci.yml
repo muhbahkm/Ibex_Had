@@ -17,7 +17,11 @@ jobs:
   quality:
     name: Lint, typecheck, test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
+    env:
+      # Supabase publishable client configuration. Authorization remains enforced by RLS/RPC.
+      EXPO_PUBLIC_SUPABASE_URL: https://asvckwhrzoqupkihqhoj.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_r_4_ggotEHwWFZ6jPWSXRQ_7KYdIEMm
 
     steps:
       - name: Checkout
@@ -51,3 +55,6 @@ jobs:
 
       - name: Expo Doctor
         run: cd apps/mobile && npx --yes expo-doctor@latest
+
+      - name: Android bundle smoke test
+        run: pnpm --dir apps/mobile exec expo export --platform android --output-dir ../../.artifacts/expo-android
