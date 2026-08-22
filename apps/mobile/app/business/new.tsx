@@ -1,6 +1,6 @@
 import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { useAuth } from '../../src/features/auth/auth-context';
 import { ibex } from '../../src/lib/ibex';
