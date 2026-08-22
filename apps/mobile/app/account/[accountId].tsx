@@ -40,6 +40,7 @@ export default function AccountScreen() {
     businessCustomerId?: string;
     displayName?: string;
     currencyCode?: string;
+    mode?: string;
   }>();
   const accountId = param(params.accountId);
   const businessId = param(params.businessId);
@@ -47,6 +48,7 @@ export default function AccountScreen() {
   const businessCustomerId = param(params.businessCustomerId);
   const displayName = param(params.displayName) || 'العميل';
   const currencyCode = param(params.currencyCode);
+  const customerMode = param(params.mode) === 'customer';
   const { session } = useAuth();
   const [entries, setEntries] = useState<readonly StatementEntryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,14 +80,7 @@ export default function AccountScreen() {
   if (!accountId || !businessId || !customerIdentityId || !currencyCode) return <Redirect href="/home" />;
 
   const balance = entries[0]?.balanceAfterMinor ?? 0n;
-  const movementParams = {
-    accountId,
-    businessId,
-    customerIdentityId,
-    businessCustomerId,
-    displayName,
-    currencyCode,
-  };
+  const movementParams = { accountId, businessId, customerIdentityId, businessCustomerId, displayName, currencyCode };
 
   return (
     <AppScreen>
@@ -93,7 +88,10 @@ export default function AccountScreen() {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backText}>رجوع</Text>
         </Pressable>
-        <Heading title={displayName} subtitle={`كشف حساب ${currencyCode}`} />
+        <Heading
+          title={displayName}
+          subtitle={customerMode ? `حسابي لدى النشاط · ${currencyCode}` : `كشف حساب ${currencyCode}`}
+        />
 
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>الرصيد الحالي</Text>
@@ -101,20 +99,22 @@ export default function AccountScreen() {
           <Text style={styles.balanceHint}>الموجب = على العميل للنشاط</Text>
         </View>
 
-        <View style={styles.actions}>
-          <Pressable
-            onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'sale' } })}
-            style={[styles.actionButton, styles.primaryAction]}
-          >
-            <Text style={styles.primaryActionText}>بيع آجل</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'receipt' } })}
-            style={styles.actionButton}
-          >
-            <Text style={styles.actionText}>تسجيل قبض</Text>
-          </Pressable>
-        </View>
+        {!customerMode ? (
+          <View style={styles.actions}>
+            <Pressable
+              onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'sale' } })}
+              style={[styles.actionButton, styles.primaryAction]}
+            >
+              <Text style={styles.primaryActionText}>بيع آجل</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'receipt' } })}
+              style={styles.actionButton}
+            >
+              <Text style={styles.actionText}>تسجيل قبض</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <ErrorMessage message={error} />
         {loading ? <ActivityIndicator color={theme.colors.primary} style={styles.loader} /> : null}
@@ -127,7 +127,10 @@ export default function AccountScreen() {
           {entries.map((entry) => (
             <View key={entry.transactionId} style={styles.entryCard}>
               <View style={styles.entryTop}>
-                <Text style={styles.entryType}>{movementLabel(entry.transactionType)}</Text>
+                <View style={styles.entryTitleWrap}>
+                  <Text style={styles.entryType}>{movementLabel(entry.transactionType)}</Text>
+                  {entry.transactionStatus === 'reversed' ? <Text style={styles.reversedBadge}>معكوسة</Text> : null}
+                </View>
                 <Text style={[styles.effect, entry.effectMinor < 0n ? styles.credit : styles.debit]}>
                   {formatMinorUnits(entry.effectMinor, entry.currencyCode)}
                 </Text>
@@ -137,13 +140,31 @@ export default function AccountScreen() {
                 <Text style={styles.dateText}>{new Date(entry.occurredAt).toLocaleDateString('en-GB')}</Text>
                 <Text style={styles.runningBalance}>الرصيد: {formatMinorUnits(entry.balanceAfterMinor, entry.currencyCode)}</Text>
               </View>
+              {!customerMode && entry.canReverse ? (
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/account/[accountId]/reverse',
+                      params: {
+                        ...movementParams,
+                        transactionId: entry.transactionId,
+                        movementLabel: movementLabel(entry.transactionType),
+                        amount: formatMinorUnits(entry.effectMinor, entry.currencyCode),
+                      },
+                    })
+                  }
+                  style={styles.reverseButton}
+                >
+                  <Text style={styles.reverseText}>عكس الحركة</Text>
+                </Pressable>
+              ) : null}
             </View>
           ))}
         </View>
 
         {!loading && entries.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>لا توجد حركات بعد. ابدأ ببيع آجل أو تسجيل قبض.</Text>
+            <Text style={styles.emptyText}>{customerMode ? 'لا توجد حركات في هذا الحساب بعد.' : 'لا توجد حركات بعد. ابدأ ببيع آجل أو تسجيل قبض.'}</Text>
           </View>
         ) : null}
       </ScrollView>
@@ -170,8 +191,10 @@ const styles = StyleSheet.create({
   statementCount: { color: theme.colors.textMuted, fontSize: theme.typography.caption },
   list: { gap: theme.spacing.sm },
   entryCard: { padding: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface },
-  entryTop: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+  entryTop: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.md },
+  entryTitleWrap: { flexDirection: 'row-reverse', alignItems: 'center', gap: theme.spacing.sm },
   entryType: { color: theme.colors.text, fontWeight: '700', writingDirection: 'rtl' },
+  reversedBadge: { color: theme.colors.textMuted, fontSize: theme.typography.caption, backgroundColor: theme.colors.surfaceMuted, paddingHorizontal: theme.spacing.sm, paddingVertical: 3, borderRadius: theme.radius.pill, writingDirection: 'rtl' },
   effect: { fontWeight: '800', writingDirection: 'ltr' },
   debit: { color: theme.colors.text },
   credit: { color: theme.colors.success },
@@ -179,6 +202,8 @@ const styles = StyleSheet.create({
   entryBottom: { flexDirection: 'row-reverse', justifyContent: 'space-between', marginTop: theme.spacing.md },
   dateText: { color: theme.colors.textMuted, fontSize: theme.typography.caption, writingDirection: 'ltr' },
   runningBalance: { color: theme.colors.textMuted, fontSize: theme.typography.caption, writingDirection: 'rtl' },
+  reverseButton: { alignSelf: 'flex-start', marginTop: theme.spacing.md, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceMuted },
+  reverseText: { color: theme.colors.textMuted, fontWeight: '700', fontSize: theme.typography.caption, writingDirection: 'rtl' },
   emptyCard: { padding: theme.spacing.lg, backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.lg },
   emptyText: { color: theme.colors.textMuted, textAlign: 'right', writingDirection: 'rtl' },
 });
