@@ -7,7 +7,7 @@ import { theme } from '../src/ui/theme';
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="dark" backgroundColor={theme.colors.background} />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           headerShown: false,
