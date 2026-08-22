@@ -24,20 +24,11 @@ export default function HomeScreen() {
   const [businesses, setBusinesses] = useState<readonly BusinessSummaryRecord[]>([]);
   const [myAccounts, setMyAccounts] = useState<readonly MyCustomerAccountRecord[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [loading, setLoading] = useState(!isPreviewMode);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      if (isPreviewMode) {
-        setBusinesses([]);
-        setMyAccounts([]);
-        setUnreadNotifications(0);
-        setError(null);
-        setLoading(false);
-        return undefined;
-      }
-
       let active = true;
       setLoading(true);
       setError(null);
@@ -61,7 +52,7 @@ export default function HomeScreen() {
       return () => {
         active = false;
       };
-    }, [isPreviewMode]),
+    }, []),
   );
 
   if (!session) return <Redirect href="/sign-in" />;
@@ -82,31 +73,29 @@ export default function HomeScreen() {
 
         <Heading title="IBEX HAD" subtitle="حساباتك كعميل ومساحات العمل التي تديرها، في مكان واحد." />
 
-        {!isPreviewMode ? (
-          <Pressable
-            onPress={() => router.push('/notifications')}
-            style={({ pressed }) => [styles.notificationCard, pressed ? styles.cardPressed : null]}
-          >
-            <View style={styles.notificationTextWrap}>
-              <Text style={styles.notificationTitle}>الإشعارات</Text>
-              <Text style={styles.notificationSubtitle}>الحركات وطلبات المراجعة المهمة.</Text>
-            </View>
-            <View style={[styles.notificationBadge, unreadNotifications === 0 ? styles.notificationBadgeMuted : null]}>
-              <Text style={[styles.notificationBadgeText, unreadNotifications === 0 ? styles.notificationBadgeTextMuted : null]}>
-                {unreadNotifications > 99 ? '99+' : String(unreadNotifications)}
-              </Text>
-            </View>
-          </Pressable>
-        ) : null}
-
         {isPreviewMode ? (
           <View style={styles.previewCard}>
-            <Text style={styles.previewTitle}>أنت داخل وضع الاختبار</Text>
+            <Text style={styles.previewTitle}>وضع العرض الكامل</Text>
             <Text style={styles.previewBody}>
-              تم قبول رقم الجوال مباشرة دون OTP. أوقفنا استدعاءات البيانات المالية الحقيقية في هذا الوضع حتى لا يتحول تجاوز التحقق إلى صلاحية فعلية على Supabase.
+              أنت تتصفح بيانات تجريبية محلية فقط. يمكنك الآن فتح الأنشطة والعملاء والحسابات وتجربة البيع والقبض والعكس والإشعارات دون إرسال أي بيانات مالية إلى Supabase.
             </Text>
           </View>
         ) : null}
+
+        <Pressable
+          onPress={() => router.push('/notifications')}
+          style={({ pressed }) => [styles.notificationCard, pressed ? styles.cardPressed : null]}
+        >
+          <View style={styles.notificationTextWrap}>
+            <Text style={styles.notificationTitle}>الإشعارات</Text>
+            <Text style={styles.notificationSubtitle}>الحركات وطلبات المراجعة المهمة.</Text>
+          </View>
+          <View style={[styles.notificationBadge, unreadNotifications === 0 ? styles.notificationBadgeMuted : null]}>
+            <Text style={[styles.notificationBadgeText, unreadNotifications === 0 ? styles.notificationBadgeTextMuted : null]}>
+              {unreadNotifications > 99 ? '99+' : String(unreadNotifications)}
+            </Text>
+          </View>
+        </Pressable>
 
         <ErrorMessage message={error} />
         {loading ? <ActivityIndicator style={styles.loader} color={theme.colors.primary} /> : null}
@@ -114,7 +103,7 @@ export default function HomeScreen() {
         {myAccounts.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>حساباتي</Text>
-            <Text style={styles.sectionSubtitle}>الحسابات التي تم ربطها بهويتك الموثقة.</Text>
+            <Text style={styles.sectionSubtitle}>{isPreviewMode ? 'حسابات عميل تجريبية لعرض تجربة الطرف الآخر.' : 'الحسابات التي تم ربطها بهويتك الموثقة.'}</Text>
             <View style={styles.list}>
               {myAccounts.map((account) => (
                 <Pressable
@@ -139,9 +128,7 @@ export default function HomeScreen() {
                     <Text style={styles.businessName}>{account.businessName}</Text>
                     <Text style={styles.businessCaption}>{account.currencyCode} · {account.accountStatus}</Text>
                   </View>
-                  <Text style={styles.accountBalance}>
-                    {formatMinorUnits(account.balanceMinor, account.currencyCode)}
-                  </Text>
+                  <Text style={styles.accountBalance}>{formatMinorUnits(account.balanceMinor, account.currencyCode)}</Text>
                 </Pressable>
               ))}
             </View>
@@ -154,12 +141,8 @@ export default function HomeScreen() {
 
           {!loading && businesses.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>{isPreviewMode ? 'معاينة الدخول جاهزة' : 'لا يوجد نشاط بعد'}</Text>
-              <Text style={styles.emptyBody}>
-                {isPreviewMode
-                  ? 'هذا الوضع مخصص حاليًا لعبور شاشة التسجيل واختبار الواجهة دون SMS. سنعيد الاتصال بالبيانات الحقيقية عند تفعيل التحقق الفعلي.'
-                  : 'يمكنك إنشاء نشاط، أو استخدام IBEX HAD كعميل فقط.'}
-              </Text>
+              <Text style={styles.emptyTitle}>لا يوجد نشاط بعد</Text>
+              <Text style={styles.emptyBody}>يمكنك إنشاء نشاط، أو استخدام IBEX HAD كعميل فقط.</Text>
             </View>
           ) : null}
 
@@ -177,18 +160,14 @@ export default function HomeScreen() {
               >
                 <View style={styles.businessMeta}>
                   <Text style={styles.businessName}>{business.name}</Text>
-                  <Text style={styles.businessCaption}>
-                    {business.defaultCurrencyCode ?? 'بدون عملة افتراضية'} · {business.role}
-                  </Text>
+                  <Text style={styles.businessCaption}>{business.defaultCurrencyCode ?? 'بدون عملة افتراضية'} · {business.role}</Text>
                 </View>
                 <Text style={styles.chevron}>‹</Text>
               </Pressable>
             ))}
           </View>
 
-          {!isPreviewMode ? (
-            <PrimaryButton onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</PrimaryButton>
-          ) : null}
+          <PrimaryButton onPress={() => router.push('/business/new')}>إنشاء نشاط تجاري</PrimaryButton>
         </View>
       </ScrollView>
     </AppScreen>
