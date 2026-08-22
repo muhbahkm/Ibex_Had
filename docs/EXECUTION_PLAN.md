@@ -55,19 +55,36 @@ Detailed verification is recorded in `docs/LEDGER_V1.md`.
 Exit criteria met: balances were rebuilt deterministically from posted ledger entries without trusting cached balances.
 
 ## Phase 2 — Identity and onboarding
-Status: NEXT.
+Status: BACKEND CORE COMPLETE; LIVE OTP DELIVERY AND MOBILE SESSION WORK PENDING.
 
-- Supabase Auth with phone OTP.
-- UX: name + phone number + OTP only.
-- UUID is the permanent internal identity; phone number is mutable and never a financial key.
-- Profiles and Customer Identity claim flow.
-- Secure mobile session persistence.
-- Recovery and phone-change flow.
-- Introduce narrow, audited Application/Domain commands required for safe onboarding rather than granting broad client table writes.
+Completed:
+- Primary UX contract fixed as name + phone number + OTP only.
+- UUID remains the permanent internal identity; phone is mutable and never a financial key.
+- Shared name normalization and Yemen-first E.164 phone normalization are implemented and unit-tested.
+- Migration `add_safe_identity_commands` is deployed to Supabase Mumbai.
+- `complete_profile(full_name)` derives verified phone state from `auth.users`; clients cannot submit or forge phone verification fields.
+- `claim_customer_identity(id)` claims one explicit identity only when its E.164 phone matches the caller's verified Auth phone; same-user retries are idempotent.
+- Broad authenticated writes to profile/customer tables remain disabled.
+- Onboarding/claim mutations create immutable audit events.
+- Database verification transaction proved profile completion, successful claim, idempotent retry, and rejection of a mismatched phone; test data was rolled back.
+- Function privileges verified: `authenticated` can execute the narrow commands; `anon` cannot.
+- Supabase Security Advisor has no findings after the identity migration.
+- Phone-change behavior is documented: change/verify in Auth first, then resynchronize profile; no silent customer-identity merge.
 
-Exit criteria: a new user can sign up and return with minimal friction while RLS prevents cross-user/business access.
+Pending external/mobile work:
+- Enable Phone Auth in hosted Supabase settings.
+- Select/configure an SMS provider with proven Yemen delivery.
+- Test real OTP delivery and phone-change OTP.
+- Review OTP rate limits and abuse controls.
+- Implement secure session persistence in the Expo mobile app when the mobile shell is introduced.
+
+Detailed flow and security contract: `docs/IDENTITY_ONBOARDING.md`.
+
+Exit criteria remain open until a real Yemeni phone completes OTP login and the mobile session can be restored securely.
 
 ## Phase 3 — Application and domain core
+Status: NEXT PROVIDER-INDEPENDENT DELIVERY.
+
 - Modular Monolith boundaries: Auth, Businesses, Customers, Accounts, Ledger, Documents, Disputes, Notifications, Integrations.
 - Shared use cases such as CreateCustomer, CreateDraftTransaction, PostReceipt, PostSale, ReverseTransaction, GetStatement.
 - No client can create ledger entries directly.
@@ -139,4 +156,4 @@ A feature/change is complete only when applicable items are satisfied:
 - No untracked manual production changes remain.
 
 ## Current next delivery
-Begin Phase 2: define and implement the phone-OTP identity/onboarding flow and the narrow server-side commands required to create/update profiles and claim customer identities safely.
+Proceed with Phase 3 provider-independent Application/Domain Core while the external SMS-provider choice is handled separately. Live OTP closure returns as soon as provider credentials and real Yemen delivery are available.
