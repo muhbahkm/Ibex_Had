@@ -39,19 +39,21 @@ function parseMeta(raw: string | null): StorageMeta | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<StorageMeta>;
+    const chunks = parsed.chunks;
     if (
       parsed.version !== 1 ||
       typeof parsed.generation !== 'string' ||
-      !Number.isInteger(parsed.chunks) ||
-      (parsed.chunks ?? 0) < 1 ||
-      (parsed.chunks ?? 0) > 128
+      typeof chunks !== 'number' ||
+      !Number.isInteger(chunks) ||
+      chunks < 1 ||
+      chunks > 128
     ) {
       return null;
     }
     return {
       version: 1,
       generation: parsed.generation,
-      chunks: parsed.chunks,
+      chunks,
     };
   } catch {
     return null;
