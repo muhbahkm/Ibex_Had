@@ -4,6 +4,7 @@ import {
   normalizePhoneE164,
   parsePositiveMinorUnits,
 } from '../../core/src/index.js';
+import { buildBusinessCollectionOverview } from './collection-read-model.js';
 import type { ApplicationRepository, DisputeStatus, RequestContext } from './ports.js';
 
 function requireId(value: string, field: string): string {
@@ -103,23 +104,13 @@ export class IbexApplication {
     });
   }
   async listTransactionDocuments(context: RequestContext, input: { readonly transactionId: string }) {
-    return this.repository.listTransactionDocuments({
-      actorUserId: requireId(context.actorUserId, 'actorUserId'),
-      transactionId: requireId(input.transactionId, 'transactionId'),
-    });
+    return this.repository.listTransactionDocuments({ actorUserId: requireId(context.actorUserId, 'actorUserId'), transactionId: requireId(input.transactionId, 'transactionId') });
   }
   async listNotifications(context: RequestContext, input: { readonly unreadOnly?: boolean; readonly limit?: number } = {}) {
-    return this.repository.listNotifications({
-      actorUserId: requireId(context.actorUserId, 'actorUserId'),
-      unreadOnly: input.unreadOnly ?? false,
-      limit: normalizeLimit(input.limit, 50, 200),
-    });
+    return this.repository.listNotifications({ actorUserId: requireId(context.actorUserId, 'actorUserId'), unreadOnly: input.unreadOnly ?? false, limit: normalizeLimit(input.limit, 50, 200) });
   }
   async markNotificationRead(context: RequestContext, input: { readonly notificationId: string }) {
-    return this.repository.markNotificationRead({
-      actorUserId: requireId(context.actorUserId, 'actorUserId'),
-      notificationId: requireId(input.notificationId, 'notificationId'),
-    });
+    return this.repository.markNotificationRead({ actorUserId: requireId(context.actorUserId, 'actorUserId'), notificationId: requireId(input.notificationId, 'notificationId') });
   }
   async postSale(context: RequestContext, input: { readonly businessId: string; readonly customerIdentityId: string; readonly accountId: string; readonly amountMinor: string; readonly currencyCode: string; readonly idempotencyKey: string; readonly occurredAt?: string; readonly description?: string }) {
     return this.repository.postMovement({ actorUserId: requireId(context.actorUserId, 'actorUserId'), businessId: requireId(input.businessId, 'businessId'), customerIdentityId: requireId(input.customerIdentityId, 'customerIdentityId'), accountId: requireId(input.accountId, 'accountId'), transactionType: 'sale_on_account', direction: 'debit', amountMinor: parsePositiveMinorUnits(input.amountMinor), currencyCode: normalizeCurrencyCode(input.currencyCode), idempotencyKey: normalizeIdempotencyKey(input.idempotencyKey), ...(input.occurredAt ? { occurredAt: input.occurredAt } : {}), ...(input.description ? { description: input.description.trim() } : {}), ...(context.requestId ? { requestId: context.requestId } : {}) });
@@ -134,6 +125,14 @@ export class IbexApplication {
   async listBusinessCustomers(context: RequestContext, input: { readonly businessId: string; readonly limit?: number; readonly search?: string }) {
     const search = input.search?.trim();
     return this.repository.listBusinessCustomers({ actorUserId: requireId(context.actorUserId, 'actorUserId'), businessId: requireId(input.businessId, 'businessId'), limit: normalizeLimit(input.limit, 100, 200), ...(search ? { search } : {}) });
+  }
+  async getBusinessCollectionOverview(context: RequestContext, input: { readonly businessId: string; readonly limit?: number; readonly staleAfterDays?: number }) {
+    return buildBusinessCollectionOverview(this.repository, {
+      actorUserId: requireId(context.actorUserId, 'actorUserId'),
+      businessId: requireId(input.businessId, 'businessId'),
+      limit: normalizeLimit(input.limit, 100, 200),
+      ...(input.staleAfterDays !== undefined ? { staleAfterDays: input.staleAfterDays } : {}),
+    });
   }
   async listCustomerAccounts(context: RequestContext, input: { readonly businessCustomerId: string }) {
     return this.repository.listCustomerAccounts({ actorUserId: requireId(context.actorUserId, 'actorUserId'), businessCustomerId: requireId(input.businessCustomerId, 'businessCustomerId') });
