@@ -1,19 +1,15 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { useAuth } from '../../../../src/features/auth/auth-context';
 import { ibex } from '../../../../src/lib/ibex';
-import { AppScreen, ErrorMessage, Field, Heading, PrimaryButton } from '../../../../src/ui/primitives';
+import { Button, InlineFeedback, Surface, TextField } from '../../../../src/ui/primitives';
+import { SecondaryShell } from '../../../../src/ui/secondary-shell';
 import { theme } from '../../../../src/ui/theme';
 
-function param(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
-}
-
-function message(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : 'تعذر إضافة العميل.';
-}
+function param(value: string | string[] | undefined): string { return Array.isArray(value) ? (value[0] ?? '') : (value ?? ''); }
+function message(error: unknown): string { return error instanceof Error && error.message ? error.message : 'تعذر إضافة العميل.'; }
 
 export default function CreateCustomerScreen() {
   const router = useRouter();
@@ -33,61 +29,30 @@ export default function CreateCustomerScreen() {
     if (loading) return;
     setLoading(true);
     setError(null);
-    void ibex
-      .createCustomer(
-        {
-          businessId,
-          displayName,
-          ...(phone.trim() ? { phone } : {}),
-        },
-        `mobile-customer-${Date.now().toString(36)}`,
-      )
-      .then((customer) => {
-        router.replace({
-          pathname: '/customer/[businessCustomerId]',
-          params: {
-            businessCustomerId: customer.businessCustomerId,
-            customerIdentityId: customer.customerIdentityId,
-            businessId,
-            businessName,
-            displayName: customer.displayName,
-            phone,
-          },
-        });
-      })
+    void ibex.createCustomer({ businessId, displayName, ...(phone.trim() ? { phone } : {}) }, `mobile-customer-${Date.now().toString(36)}`)
+      .then((customer) => router.replace({ pathname: '/customer/[businessCustomerId]', params: { businessCustomerId: customer.businessCustomerId, customerIdentityId: customer.customerIdentityId, businessId, businessName, displayName: customer.displayName, phone } }))
       .catch((createError: unknown) => setError(message(createError)))
       .finally(() => setLoading(false));
   };
 
   return (
-    <AppScreen>
-      <Pressable onPress={() => router.back()} style={styles.backButton}>
-        <Text style={styles.backText}>رجوع</Text>
-      </Pressable>
-      <Heading title="إضافة عميل" subtitle={`سيظهر العميل داخل ${businessName} فقط.`} />
-      <Field
-        autoFocus
-        label="اسم العميل"
-        onChangeText={setDisplayName}
-        placeholder="محمد عبدالله"
-        value={displayName}
-      />
-      <Field
-        keyboardType="phone-pad"
-        label="رقم الجوال — اختياري"
-        onChangeText={setPhone}
-        placeholder="0777 123 456"
-        value={phone}
-      />
-      <ErrorMessage message={error} />
-      <PrimaryButton disabled={displayName.trim().length < 2} loading={loading} onPress={submit}>
-        إضافة العميل
-      </PrimaryButton>
-    </AppScreen>
+    <SecondaryShell title="إضافة عميل" subtitle={businessName} onBack={() => router.back()} backLabel="إلغاء">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Surface variant="tinted">
+          <Text style={styles.noteTitle}>هوية العميل داخل النشاط</Text>
+          <Text style={styles.noteBody}>الاسم مطلوب. رقم الجوال اختياري الآن، ولا يعني إدخاله أنه أصبح موثّقًا؛ ربط الهوية بالمستخدم سيتم لاحقًا عبر مسار تحقق مستقل.</Text>
+        </Surface>
+        <TextField autoFocus label="اسم العميل" onChangeText={setDisplayName} placeholder="محمد عبدالله" value={displayName} />
+        <TextField keyboardType="phone-pad" label="رقم الجوال — اختياري" onChangeText={setPhone} placeholder="777123456" value={phone} />
+        {error ? <InlineFeedback tone="danger">{error}</InlineFeedback> : null}
+        <Button disabled={displayName.trim().length < 2} loading={loading} onPress={submit}>إضافة العميل</Button>
+      </ScrollView>
+    </SecondaryShell>
   );
 }
 
 const styles = StyleSheet.create({
-  backButton: { alignSelf: 'flex-start', paddingVertical: theme.spacing.sm, marginBottom: theme.spacing.md },
-  backText: { color: theme.colors.textMuted, fontWeight: '700', writingDirection: 'rtl' },
+  content: { gap: theme.spacing.lg, paddingTop: theme.spacing.lg, paddingBottom: theme.spacing.xl },
+  noteTitle: { color: theme.colors.accent, fontSize: theme.typography.styles.label.fontSize, fontWeight: '700', textAlign: 'right', writingDirection: 'rtl' },
+  noteBody: { color: theme.colors.textMuted, lineHeight: 24, marginTop: theme.spacing.xs, textAlign: 'right', writingDirection: 'rtl' },
 });
