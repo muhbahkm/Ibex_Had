@@ -12,6 +12,8 @@ import type {
   ListBusinessCustomersPortInput,
   ListBusinessesPortInput,
   ListCustomerAccountsPortInput,
+  ListMyCustomerAccountsPortInput,
+  MyCustomerAccountRecord,
   OpenAccountPortInput,
   PostMovementPortInput,
   PostedMovementRecord,
@@ -80,6 +82,13 @@ function expectInteger(value: unknown, field: string, operation: string): number
   return value;
 }
 
+function expectBoolean(value: unknown, field: string, operation: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new InfrastructureError(operation, { message: `RPC payload field ${field} is not a boolean` });
+  }
+  return value;
+}
+
 function parseBigInt(value: unknown, field: string, operation: string): bigint {
   if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'bigint') {
     throw new InfrastructureError(operation, { message: `RPC payload field ${field} is not an integer` });
@@ -110,7 +119,6 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
       }),
       operation,
     );
-
     const defaultCurrencyCode = row.defaultCurrencyCode;
     return {
       id: expectString(row.id, 'id', operation),
@@ -131,7 +139,6 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
       }),
       operation,
     );
-
     return {
       customerIdentityId: expectString(row.customerIdentityId, 'customerIdentityId', operation),
       businessCustomerId: expectString(row.businessCustomerId, 'businessCustomerId', operation),
@@ -150,7 +157,6 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
       }),
       operation,
     );
-
     return {
       id: expectString(row.id, 'id', operation),
       businessCustomerId: expectString(row.businessCustomerId, 'businessCustomerId', operation),
@@ -177,7 +183,6 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
       }),
       operation,
     );
-
     return this.parseMovement(row, operation);
   }
 
@@ -194,32 +199,24 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
       }),
       operation,
     );
-
     return this.parseMovement(row, operation);
   }
 
   async listBusinesses(input: ListBusinessesPortInput): Promise<readonly BusinessSummaryRecord[]> {
     const operation = 'app_list_businesses';
-    const payload = expectArray(
-      await this.call(operation, { p_actor_user_id: input.actorUserId }),
-      operation,
-    );
+    const payload = expectArray(await this.call(operation, { p_actor_user_id: input.actorUserId }), operation);
     return payload.map((value, index) => {
       const row = expectObject(value, operation);
       return {
         businessId: expectString(row.business_id, `rows[${index}].business_id`, operation),
         name: expectString(row.name, `rows[${index}].name`, operation),
         role: expectString(row.role, `rows[${index}].role`, operation),
-        ...(typeof row.default_currency_code === 'string'
-          ? { defaultCurrencyCode: row.default_currency_code }
-          : {}),
+        ...(typeof row.default_currency_code === 'string' ? { defaultCurrencyCode: row.default_currency_code } : {}),
       } satisfies BusinessSummaryRecord;
     });
   }
 
-  async listBusinessCustomers(
-    input: ListBusinessCustomersPortInput,
-  ): Promise<readonly BusinessCustomerSummaryRecord[]> {
+  async listBusinessCustomers(input: ListBusinessCustomersPortInput): Promise<readonly BusinessCustomerSummaryRecord[]> {
     const operation = 'app_list_business_customers';
     const payload = expectArray(
       await this.call(operation, {
@@ -233,16 +230,8 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
     return payload.map((value, index) => {
       const row = expectObject(value, operation);
       return {
-        businessCustomerId: expectString(
-          row.business_customer_id,
-          `rows[${index}].business_customer_id`,
-          operation,
-        ),
-        customerIdentityId: expectString(
-          row.customer_identity_id,
-          `rows[${index}].customer_identity_id`,
-          operation,
-        ),
+        businessCustomerId: expectString(row.business_customer_id, `rows[${index}].business_customer_id`, operation),
+        customerIdentityId: expectString(row.customer_identity_id, `rows[${index}].customer_identity_id`, operation),
         displayName: expectString(row.display_name, `rows[${index}].display_name`, operation),
         accountCount: expectInteger(row.account_count, `rows[${index}].account_count`, operation),
         createdAt: expectString(row.created_at, `rows[${index}].created_at`, operation),
@@ -251,9 +240,7 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
     });
   }
 
-  async listCustomerAccounts(
-    input: ListCustomerAccountsPortInput,
-  ): Promise<readonly CustomerAccountSummaryRecord[]> {
+  async listCustomerAccounts(input: ListCustomerAccountsPortInput): Promise<readonly CustomerAccountSummaryRecord[]> {
     const operation = 'app_list_customer_accounts';
     const payload = expectArray(
       await this.call(operation, {
@@ -266,11 +253,7 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
       const row = expectObject(value, operation);
       return {
         accountId: expectString(row.account_id, `rows[${index}].account_id`, operation),
-        businessCustomerId: expectString(
-          row.business_customer_id,
-          `rows[${index}].business_customer_id`,
-          operation,
-        ),
+        businessCustomerId: expectString(row.business_customer_id, `rows[${index}].business_customer_id`, operation),
         currencyCode: expectString(row.currency_code, `rows[${index}].currency_code`, operation),
         status: expectString(row.status, `rows[${index}].status`, operation),
         balanceMinor: parseBigInt(row.balance_minor, `rows[${index}].balance_minor`, operation),
@@ -278,8 +261,26 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
     });
   }
 
+  async listMyCustomerAccounts(input: ListMyCustomerAccountsPortInput): Promise<readonly MyCustomerAccountRecord[]> {
+    const operation = 'app_list_my_customer_accounts';
+    const payload = expectArray(await this.call(operation, { p_actor_user_id: input.actorUserId }), operation);
+    return payload.map((value, index) => {
+      const row = expectObject(value, operation);
+      return {
+        businessId: expectString(row.business_id, `rows[${index}].business_id`, operation),
+        businessName: expectString(row.business_name, `rows[${index}].business_name`, operation),
+        businessCustomerId: expectString(row.business_customer_id, `rows[${index}].business_customer_id`, operation),
+        customerIdentityId: expectString(row.customer_identity_id, `rows[${index}].customer_identity_id`, operation),
+        accountId: expectString(row.account_id, `rows[${index}].account_id`, operation),
+        currencyCode: expectString(row.currency_code, `rows[${index}].currency_code`, operation),
+        accountStatus: expectString(row.account_status, `rows[${index}].account_status`, operation),
+        balanceMinor: parseBigInt(row.balance_minor, `rows[${index}].balance_minor`, operation),
+      } satisfies MyCustomerAccountRecord;
+    });
+  }
+
   async getStatement(input: GetStatementPortInput): Promise<readonly StatementEntryRecord[]> {
-    const operation = 'app_get_statement';
+    const operation = 'app_get_statement_v2';
     const payload = expectArray(
       await this.call(operation, {
         p_actor_user_id: input.actorUserId,
@@ -289,34 +290,29 @@ export class SupabaseApplicationRepository implements ApplicationRepository {
       }),
       operation,
     );
-
     return payload.map((value, index) => {
       const row = expectObject(value, operation);
+      const status = expectString(row.transaction_status, `rows[${index}].transaction_status`, operation);
+      if (status !== 'posted' && status !== 'reversed') {
+        throw new InfrastructureError(operation, { message: `RPC payload field rows[${index}].transaction_status is invalid` });
+      }
       return {
         transactionId: expectString(row.transaction_id, `rows[${index}].transaction_id`, operation),
-        transactionType: expectString(
-          row.transaction_type,
-          `rows[${index}].transaction_type`,
-          operation,
-        ) as LedgerTransactionType,
+        transactionType: expectString(row.transaction_type, `rows[${index}].transaction_type`, operation) as LedgerTransactionType,
+        transactionStatus: status,
         occurredAt: expectString(row.occurred_at, `rows[${index}].occurred_at`, operation),
         ...(typeof row.description === 'string' ? { description: row.description } : {}),
         effectMinor: parseBigInt(row.effect_minor, `rows[${index}].effect_minor`, operation),
-        balanceAfterMinor: parseBigInt(
-          row.balance_after_minor,
-          `rows[${index}].balance_after_minor`,
-          operation,
-        ),
+        balanceAfterMinor: parseBigInt(row.balance_after_minor, `rows[${index}].balance_after_minor`, operation),
         currencyCode: expectString(row.currency_code, `rows[${index}].currency_code`, operation),
+        canReverse: expectBoolean(row.can_reverse, `rows[${index}].can_reverse`, operation),
       } satisfies StatementEntryRecord;
     });
   }
 
   private async call(operation: string, args: Record<string, unknown>): Promise<unknown> {
     const { data, error } = await this.client.rpc(operation, args);
-    if (error !== null) {
-      throw new InfrastructureError(operation, error);
-    }
+    if (error !== null) throw new InfrastructureError(operation, error);
     return data;
   }
 
