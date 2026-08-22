@@ -77,6 +77,7 @@ export default function AccountScreen() {
             <View style={styles.actionItem}><Button onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'sale' } })}>بيع آجل</Button></View>
             <View style={styles.actionItem}><Button variant="secondary" onPress={() => router.push({ pathname: '/account/[accountId]/movement', params: { ...movementParams, kind: 'receipt' } })}>تسجيل قبض</Button></View>
             <View style={styles.actionWide}><Button variant="ghost" onPress={() => router.push({ pathname: '/account/[accountId]/credit-terms', params: { accountId, displayName, currencyCode } })}>شروط الائتمان والاستحقاق</Button></View>
+            {businessCustomerId ? <View style={styles.actionWide}><Button variant="ghost" onPress={() => router.push({ pathname: '/business/[businessId]/collection-contact', params: { businessId, businessCustomerId, accountId, displayName, currencyCode } })}>سجل المتابعة والتحصيل</Button></View> : null}
           </View>
         ) : null}
 
